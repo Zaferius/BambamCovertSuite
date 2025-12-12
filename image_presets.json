@@ -1,0 +1,9 @@
+{
+  "E-Okul": {
+    "format": "JPG",
+    "width": 133,
+    "height": 171,
+    "output_dir": "",
+    "rename_pattern": "{name}_converted_{index}"
+  }
+}

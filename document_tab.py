@@ -40,9 +40,8 @@ class DocumentTab:
 
         self.drop_canvas = None
 
-        self.engine_type = "none"
-        self.engine_name = "None"
-        self._detect_engine()
+        self.engine_type = "checking"
+        self.engine_name = "Detecting..."
 
         # Advanced settings
         self.advanced_visible = tk.BooleanVar(value=False)
@@ -55,19 +54,18 @@ class DocumentTab:
 
         self._build_ui()
         self._setup_drag_and_drop()
+        self._start_engine_detection()
         self._update_controls_state()
 
     # ---------------- Engine detection ----------------
-    def _detect_engine(self):
+    def _detect_engine_blocking(self):
         # Try Word (Windows)
         try:
             import win32com.client  # type: ignore
             try:
                 word = win32com.client.Dispatch("Word.Application")
                 word.Quit()
-                self.engine_type = "word"
-                self.engine_name = "Microsoft Word (COM)"
-                return
+                return "word", "Microsoft Word (COM)"
             except Exception:
                 pass
         except ImportError:
@@ -82,14 +80,37 @@ class DocumentTab:
                 text=True,
             )
             if result.returncode == 0:
-                self.engine_type = "libreoffice"
-                self.engine_name = "LibreOffice (soffice)"
-                return
+                return "libreoffice", "LibreOffice (soffice)"
         except FileNotFoundError:
             pass
 
-        self.engine_type = "none"
-        self.engine_name = "None"
+        return "none", "None"
+
+    def _start_engine_detection(self):
+        def worker():
+            etype, ename = self._detect_engine_blocking()
+            self.root.after(0, lambda: self._apply_engine_detection(etype, ename))
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+
+    def _apply_engine_detection(self, engine_type, engine_name):
+        self.engine_type = engine_type
+        self.engine_name = engine_name
+
+        if self.engine_type in ("word", "libreoffice"):
+            txt = f"Detected engine: {self.engine_name}"
+            color = "#7CFC00"
+        else:
+            txt = (
+                "No office engine detected.\n"
+                "Install LibreOffice (free) or Microsoft Word and restart the app."
+            )
+            color = "#ff6b6b"
+
+        self.lbl_engine.config(text=txt, foreground=color)
+        self._update_controls_state()
+        self._setup_drag_and_drop()
 
     # ---------------- UI ----------------
     def _build_ui(self):
@@ -109,19 +130,13 @@ class DocumentTab:
         frame_engine = ttk.LabelFrame(main_frame, text="Engine Status")
         frame_engine.pack(fill="x", **padding)
 
-        if self.engine_type in ("word", "libreoffice"):
-            txt = f"Detected engine: {self.engine_name}"
-            color = "#7CFC00"
-        else:
-            txt = (
-                "No office engine detected.\n"
-                "Install LibreOffice (free) or Microsoft Word and restart the app."
-            )
-            color = "#ff6b6b"
-
-        self.lbl_engine = ttk.Label(frame_engine, text=txt, justify="left")
+        self.lbl_engine = ttk.Label(
+            frame_engine,
+            text="Detecting office engine...",
+            justify="left",
+        )
         self.lbl_engine.pack(anchor="w", padx=8, pady=5)
-        self.lbl_engine.configure(foreground=color)
+        self.lbl_engine.configure(foreground="#c7b2ff")
 
         # 1) Select documents
         frame_files = ttk.LabelFrame(main_frame, text="1) Select Documents")
@@ -147,6 +162,8 @@ class DocumentTab:
 
         self.lbl_file_count = ttk.Label(top_row, text="Selected files: 0")
         self.lbl_file_count.pack(side="left", pady=2)
+        btn_clear_sel = ttk.Button(top_row, text="Clear Selected", command=self.clear_selected_files)
+        btn_clear_sel.pack(side="right", padx=5)
 
         self.lbl_hint = ttk.Label(
             inner,
@@ -169,8 +186,6 @@ class DocumentTab:
 
         btn_clear_out = ttk.Button(frame_output, text="Clear Output Folder", command=self.clear_output_folder_contents)
         btn_clear_out.pack(side="right", padx=5)
-        btn_clear_sel = ttk.Button(frame_output, text="Clear Selected", command=self.clear_selected_files)
-        btn_clear_sel.pack(side="right", padx=5)
 
         # 3) Target format
         frame_format = ttk.LabelFrame(main_frame, text="3) Target Format")

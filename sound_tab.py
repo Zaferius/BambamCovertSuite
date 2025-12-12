@@ -1,5 +1,8 @@
 import os, subprocess, threading, tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+import concurrent.futures, multiprocessing
+
+import localization as i18n
 
 try:
     from tkinterdnd2 import DND_FILES
@@ -9,9 +12,18 @@ except Exception:
 AUDIO_FORMATS = ["MP3","WAV","FLAC","OGG","M4A","AAC"]
 AUDIO_BITRATES = ["128k","192k","256k","320k"]
 
+def get_ffmpeg_cmd():
+    exe = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    here = os.path.dirname(os.path.abspath(__file__))
+    local = os.path.join(here, exe)
+    if os.path.exists(local):
+        return [local]
+    return ["ffmpeg"]
+
 def have_ffmpeg():
     try:
-        subprocess.run(["ffmpeg","-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        cmd = get_ffmpeg_cmd() + ["-version"]
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return True
     except Exception:
         return False
@@ -20,7 +32,7 @@ class SoundTab:
     def __init__(self, app, parent):
         self.app=app; self.root=app.root; self.parent=parent
         if not have_ffmpeg():
-            messagebox.showwarning("FFmpeg not found","FFmpeg is required for Sound features.")
+            messagebox.showwarning(i18n.t("sound.ffmpeg.missing_title"), i18n.t("sound.ffmpeg.missing_message"))
 
         self.audio_files=[]; self.output_dir=""
         self.target_format=tk.StringVar(value="MP3")
@@ -33,45 +45,61 @@ class SoundTab:
     def _build_ui(self):
         padding={"padx":10,"pady":5}
         main=ttk.Frame(self.parent); main.pack(fill="both", expand=True, padx=8, pady=8)
-        ttk.Label(main, text="Bambam Sound Converter", font=("Segoe UI",12,"bold")).pack(pady=(0,8))
+        self.lbl_title = ttk.Label(main, text=i18n.t("sound.title"), font=("Segoe UI",12,"bold"))
+        self.lbl_title.pack(pady=(0,8))
 
-        files=ttk.LabelFrame(main, text="1) Select Audio Files"); files.pack(fill="x", **padding)
-        self.drop_canvas=tk.Canvas(files, bg=self.app.frame_bg, highlightthickness=0, height=90)
+        self.lf_select = ttk.LabelFrame(main, text=i18n.t("sound.section.select")); files=self.lf_select; files.pack(fill="x", **padding)
+        self.drop_canvas=tk.Canvas(files, bg=self.app.frame_bg, highlightthickness=0, height=120)
         self.drop_canvas.pack(fill="x", padx=6, pady=6)
         self.drop_canvas.bind("<Configure>", self._draw_drop_zone_border)
         inner=ttk.Frame(self.drop_canvas); self.drop_canvas.create_window(10,10, window=inner, anchor="nw")
 
-        ttk.Button(inner, text="Browse Audio...", command=self.select_files).pack(side="left", padx=(0,10), pady=2)
-        self.lbl_file_count=ttk.Label(inner, text="Selected files: 0"); self.lbl_file_count.pack(side="left", pady=2)
-        ttk.Label(inner, text="You can also drag & drop audio files onto this area.", wraplength=470, justify="left")\
-            .pack(anchor="w", pady=(4,0))
+        top=ttk.Frame(inner); top.pack(fill="x")
 
-        out=ttk.LabelFrame(main, text="2) Select Output Folder"); out.pack(fill="x", **padding)
-        ttk.Button(out, text="Browse Folder...", command=self.select_output_dir).pack(side="left", padx=5, pady=5)
-        self.lbl_output_dir=ttk.Label(out, text="Not selected"); self.lbl_output_dir.configure(foreground="#c7b2ff")
+        self.btn_browse = ttk.Button(top, text=i18n.t("sound.btn.browse_files"), command=self.select_files)
+        self.btn_browse.pack(side="left", padx=(0,8), pady=2)
+        self.btn_add_folders = ttk.Button(top, text=i18n.t("sound.btn.add_folders"), command=self.add_folders)
+        self.btn_add_folders.pack(side="left", padx=(0,8), pady=2)
+
+        self.lbl_file_count=ttk.Label(top, text=i18n.t("sound.files.count", file_count=0))
+        self.lbl_file_count.pack(side="left", pady=2)
+        self.btn_clear = ttk.Button(top, text=i18n.t("sound.btn.clear_selected"), command=self._clear_selected)
+        self.btn_clear.pack(side="right", padx=5)
+
+        self.lbl_hint=ttk.Label(
+            inner,
+            text=i18n.t("sound.hint.dragdrop"),
+            wraplength=460,
+            justify="left",
+        )
+        self.lbl_hint.pack(fill="x", anchor="w", pady=(6,4))
+
+        self.lf_output=ttk.LabelFrame(main, text=i18n.t("sound.section.output")); out=self.lf_output; out.pack(fill="x", **padding)
+        self.btn_out_browse = ttk.Button(out, text=i18n.t("sound.output.btn.browse"), command=self.select_output_dir)
+        self.btn_out_browse.pack(side="left", padx=5, pady=5)
+        self.lbl_output_dir=ttk.Label(out, text=i18n.t("sound.output.label.not_selected")); self.lbl_output_dir.configure(foreground="#c7b2ff")
         self.lbl_output_dir.pack(side="left", padx=10)
-        ttk.Button(out, text="Clear Selected", command=self._clear_selected).pack(side="right", padx=5)
-        ttk.Button(out, text="Clear Output Folder", command=self._clear_output_folder).pack(side="right", padx=5)
+        self.btn_clear_output = ttk.Button(out, text=i18n.t("sound.output.btn.clear"), command=self._clear_output_folder)
+        self.btn_clear_output.pack(side="right", padx=5)
 
-        fmt=ttk.LabelFrame(main, text="3) Target Format & Bitrate"); fmt.pack(fill="x", **padding)
-        ttk.Label(fmt, text="Format:").pack(side="left", padx=5, pady=5)
+        self.lf_format=ttk.LabelFrame(main, text=i18n.t("sound.section.format")); fmt=self.lf_format; fmt.pack(fill="x", **padding)
+        self.lbl_format = ttk.Label(fmt, text=i18n.t("sound.format.label")); self.lbl_format.pack(side="left", padx=5, pady=5)
         self.format_menu=tk.OptionMenu(fmt, self.target_format, *AUDIO_FORMATS); self.format_menu.pack(side="left", padx=5, pady=5)
         self._style_optionmenu(self.format_menu)
 
         bf=ttk.Frame(fmt); bf.pack(side="left", padx=15, pady=5)
-        ttk.Label(bf, text="Bitrate:").pack(side="left", padx=(0,5))
+        self.lbl_bitrate = ttk.Label(bf, text=i18n.t("sound.bitrate.label")); self.lbl_bitrate.pack(side="left", padx=(0,5))
         self.bitrate_menu=tk.OptionMenu(bf, self.bitrate, *AUDIO_BITRATES); self.bitrate_menu.pack(side="left")
         self._style_optionmenu(self.bitrate_menu)
 
-        prog=ttk.LabelFrame(main, text="Progress"); prog.pack(fill="x", **padding)
+        self.lf_progress=ttk.LabelFrame(main, text=i18n.t("sound.section.progress")); prog=self.lf_progress; prog.pack(fill="x", **padding)
         self.progress=ttk.Progressbar(prog, mode="determinate"); self.progress.pack(fill="x", padx=10, pady=5)
-        self.lbl_progress=ttk.Label(prog, text="0 / 0"); self.lbl_progress.pack()
-        self.lbl_status=ttk.Label(prog, text="Idle."); self.lbl_status.pack(pady=(0,5))
+        self.lbl_progress=ttk.Label(prog, text=i18n.t("sound.progress.initial")); self.lbl_progress.pack()
+        self.lbl_status=ttk.Label(prog, text=i18n.t("sound.status.idle")); self.lbl_status.pack(pady=(0,5))
 
         act=ttk.Frame(main); act.pack(pady=10)
-        self.btn_convert=ttk.Button(act, text="Start Conversion", command=self.start_conversion)
+        self.btn_convert=ttk.Button(act, text=i18n.t("sound.btn.start"), command=self.start_conversion)
         self.btn_convert.pack(side="left", padx=6)
-        ttk.Button(act, text="Clear", command=self._clear_all).pack(side="left", padx=6)
 
     def _style_optionmenu(self, om):
         om.config(bg=self.app.entry_bg, fg=self.app.fg,
@@ -114,17 +142,39 @@ class SoundTab:
         return ext in [".mp3",".wav",".flac",".ogg",".m4a",".aac",".wma"]
 
     def update_file_count(self):
-        self.lbl_file_count.config(text=f"Selected files: {len(self.audio_files)}")
+        self.lbl_file_count.config(text=i18n.t("sound.files.count", file_count=len(self.audio_files)))
 
     def select_files(self):
-        ft=[("Audio files","*.mp3 *.wav *.flac *.ogg *.m4a *.aac *.wma")]
-        paths=filedialog.askopenfilenames(title="Select audio files", filetypes=ft)
+        ft=[(i18n.t("tabs.sound"),"*.mp3 *.wav *.flac *.ogg *.m4a *.aac *.wma")]
+        paths=filedialog.askopenfilenames(title=i18n.t("sound.section.select"), filetypes=ft)
         if paths:
             self.audio_files=list(dict.fromkeys(self.audio_files + list(paths)))
             self.update_file_count()
 
+    def add_folders(self):
+        folders = []
+        while True:
+            d = filedialog.askdirectory(title=i18n.t("sound.section.select"))
+            if not d:
+                break
+            folders.append(d)
+            if not messagebox.askyesno(i18n.t("sound.clear_output.confirm_title"), "Add another folder?"):
+                break
+        if not folders:
+            return
+        new = []
+        for folder in folders:
+            for rootdir, _, files in os.walk(folder):
+                for name in files:
+                    fp = os.path.join(rootdir, name)
+                    if os.path.isfile(fp) and self.is_audio_file(fp):
+                        new.append(fp)
+        if new:
+            self.audio_files = list(dict.fromkeys(self.audio_files + new))
+            self.update_file_count()
+
     def select_output_dir(self):
-        d=filedialog.askdirectory(title="Select output folder")
+        d=filedialog.askdirectory(title=i18n.t("sound.section.output"))
         if d:
             self.output_dir=d
             short=d if len(d)<=45 else "..."+d[-45:]
@@ -133,14 +183,14 @@ class SoundTab:
     def start_conversion(self):
         if self.is_busy: return
         if not self.audio_files:
-            messagebox.showwarning("Warning","Please select at least one audio file."); return
+            messagebox.showwarning(i18n.t("sound.warning.title"), i18n.t("sound.warning.no_files")); return
         if not self.output_dir:
-            messagebox.showwarning("Warning","Please select an output folder."); return
+            messagebox.showwarning(i18n.t("sound.warning.title"), i18n.t("sound.warning.no_output")); return
         self.is_busy=True
         self.btn_convert.config(state="disabled")
         self.progress["value"]=0
         self.lbl_progress.config(text=f"0 / {len(self.audio_files)}")
-        self.lbl_status.config(text="Processing…")
+        self.lbl_status.config(text=i18n.t("sound.status.processing"))
         threading.Thread(target=self.convert_audio, daemon=True).start()
 
     def convert_audio(self):
@@ -150,7 +200,7 @@ class SoundTab:
             try:
                 base=os.path.splitext(os.path.basename(path))[0].replace(os.sep,"_")
                 out=self._avoid_overwrite(os.path.join(self.output_dir, f"{base}.{fmt}"))
-                cmd=["ffmpeg","-y","-i",path]
+                cmd = get_ffmpeg_cmd() + ["-y","-i",path]
                 if fmt in ["mp3","ogg","m4a","aac"]: cmd+=["-b:a", bitrate]
                 cmd+=[out]
                 res=subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -170,14 +220,19 @@ class SoundTab:
         self.is_busy=False
         self.btn_convert.config(state="normal")
         if errors:
-            self.lbl_status.config(text="Completed with errors.")
-            msg=("Audio conversion finished with errors.\n\n"
-                 f"{len(errors)} of {total} file(s) failed.\n\n"
-                 f"First error:\n{errors[0][0]}\n{errors[0][1]}")
-            messagebox.showwarning("Completed with errors", msg)
+            self.lbl_status.config(text=i18n.t("sound.result.errors_status"))
+            first = errors[0]
+            msg = i18n.t(
+                "sound.result.errors_message",
+                failed=len(errors),
+                total=total,
+                path=first[0],
+                error=first[1],
+            )
+            messagebox.showwarning(i18n.t("sound.result.errors_title"), msg)
         else:
-            self.lbl_status.config(text="Completed.")
-            messagebox.showinfo("Done", "All audio conversions finished.")
+            self.lbl_status.config(text=i18n.t("sound.result.done_status"))
+            messagebox.showinfo(i18n.t("sound.result.done_title"), i18n.t("sound.result.done_message"))
 
     def _avoid_overwrite(self, out_path:str)->str:
         if not os.path.exists(out_path): return out_path
@@ -192,16 +247,45 @@ class SoundTab:
         self.audio_files=[]; self.update_file_count()
     def _clear_output_folder(self):
         if not self.output_dir or not os.path.isdir(self.output_dir):
-            messagebox.showinfo("Info","Output folder is not set."); return
-        if not messagebox.askyesno("Confirm","Delete ALL files in output folder?"): return
+            messagebox.showinfo(i18n.t("sound.info.title"),i18n.t("sound.info.output_not_set")); return
+        if not messagebox.askyesno(i18n.t("sound.clear_output.confirm_title"),i18n.t("sound.clear_output.confirm_message")): return
         cnt=0
         for n in os.listdir(self.output_dir):
             p=os.path.join(self.output_dir,n)
             if os.path.isfile(p):
                 try: os.remove(p); cnt+=1
                 except: pass
-        messagebox.showinfo("Cleared", f"Deleted {cnt} file(s).")
+        messagebox.showinfo(i18n.t("sound.clear_output.done_title"), i18n.t("sound.clear_output.done_message", count=cnt))
     def _clear_all(self):
         self._clear_selected()
-        self.output_dir=""; self.lbl_output_dir.config(text="Not selected", foreground="#c7b2ff")
-        self.progress["value"]=0; self.lbl_progress.config(text="0 / 0"); self.lbl_status.config(text="Idle.")
+        self.output_dir=""; self.lbl_output_dir.config(text=i18n.t("sound.output.label.not_selected"), foreground="#c7b2ff")
+        self.progress["value"]=0; self.lbl_progress.config(text=i18n.t("sound.progress.initial")); self.lbl_status.config(text=i18n.t("sound.status.idle"))
+
+    # ------------- Localization refresh -------------
+    def refresh_language(self):
+        """Refresh visible texts according to current language."""
+        self.lbl_title.config(text=i18n.t("sound.title"))
+        self.lf_select.config(text=i18n.t("sound.section.select"))
+        self.btn_browse.config(text=i18n.t("sound.btn.browse_files"))
+        self.btn_add_folders.config(text=i18n.t("sound.btn.add_folders"))
+        self.btn_clear.config(text=i18n.t("sound.btn.clear_selected"))
+        self.lbl_hint.config(text=i18n.t("sound.hint.dragdrop"))
+
+        self.lf_output.config(text=i18n.t("sound.section.output"))
+        self.btn_out_browse.config(text=i18n.t("sound.output.btn.browse"))
+        if not self.output_dir:
+            self.lbl_output_dir.config(text=i18n.t("sound.output.label.not_selected"))
+        self.btn_clear_output.config(text=i18n.t("sound.output.btn.clear"))
+
+        self.lf_format.config(text=i18n.t("sound.section.format"))
+        self.lbl_format.config(text=i18n.t("sound.format.label"))
+        self.lbl_bitrate.config(text=i18n.t("sound.bitrate.label"))
+
+        self.lf_progress.config(text=i18n.t("sound.section.progress"))
+        # Status/progress text kalıcı duruma göre değişir, sadece boşsa idle yapıyoruz
+        if not self.is_busy and (self.lbl_status.cget("text") in ("", i18n.t("sound.status.idle"))):
+            self.lbl_status.config(text=i18n.t("sound.status.idle"))
+        self.btn_convert.config(text=i18n.t("sound.btn.start"))
+
+        # count label'i güncelle
+        self.update_file_count()

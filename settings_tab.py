@@ -45,7 +45,7 @@ class SettingsTab:
         self.lbl_hint.pack(anchor="w", padx=8, pady=(0, 8))
 
         # Updates section
-        self.updates_frame = ttk.LabelFrame(main, text=i18n.t("settings.section.updates"))
+        self.updates_frame = ttk.LabelFrame(main, text=i18n.t("settings.btn.check_updates"))
         self.updates_frame.pack(fill="x", pady=(10, 0))
 
         # Current version
@@ -54,16 +54,16 @@ class SettingsTab:
         ttk.Label(version_row, text=i18n.t("settings.current_version")).pack(side="left")
         ttk.Label(version_row, text=VERSION, font=("", 9, "bold")).pack(side="left", padx=(5, 0))
 
-        # Check for updates button
+        # Check for updates button and status label on same row
         btn_row = ttk.Frame(self.updates_frame)
-        btn_row.pack(fill="x", padx=8, pady=(4, 4))
+        btn_row.pack(fill="x", padx=8, pady=(4, 8))
         self.btn_check_updates = ttk.Button(btn_row, text=i18n.t("settings.btn.check_updates"), 
                                            command=self._check_for_updates)
         self.btn_check_updates.pack(side="left")
 
-        # Status label
-        self.lbl_update_status = ttk.Label(self.updates_frame, text="", wraplength=480, justify="left")
-        self.lbl_update_status.pack(anchor="w", padx=8, pady=(4, 8))
+        # Status label next to button
+        self.lbl_update_status = ttk.Label(btn_row, text="", wraplength=400, justify="left")
+        self.lbl_update_status.pack(side="left", padx=(10, 0))
 
         # Download button (hidden by default)
         self.btn_download = ttk.Button(self.updates_frame, text=i18n.t("settings.btn.download_update"), 
@@ -112,7 +112,7 @@ class SettingsTab:
                 foreground="#7CFC00"
             )
             self.download_url = download_url
-            self.btn_download.pack(anchor="w", padx=8, pady=(0, 8))
+            self.btn_download.pack(anchor="w", padx=8, pady=(4, 8))
         elif comparison == 'same':
             # Up to date
             self.lbl_update_status.config(

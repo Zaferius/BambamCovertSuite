@@ -20,6 +20,7 @@ from video_tab import VideoTab
 from document_tab import DocumentTab  # sende zaten vardı
 from batch_rename_tab import BatchRenameTab
 from settings_tab import SettingsTab
+from landing_tab import VERSION
 
 class BambamConverterSuite:
     def __init__(self, root):
@@ -167,7 +168,7 @@ class BambamConverterSuite:
             if hasattr(self, "lbl_home_title"):
                 self.lbl_home_title.config(text=i18n.t("home.title"))
             if hasattr(self, "lbl_home_version"):
-                self.lbl_home_version.config(text=i18n.t("home.version", version="1.2.8"))
+                self.lbl_home_version.config(text=i18n.t("home.version", version=VERSION))
             if hasattr(self, "lbl_home_product"):
                 self.lbl_home_product.config(text=i18n.t("home.product"))
             if hasattr(self, "btn_home_image"):
@@ -246,7 +247,7 @@ class BambamConverterSuite:
 
         self.lbl_home_title = ttk.Label(center, text=i18n.t("home.title"), font=("Segoe UI", 16, "bold"))
         self.lbl_home_title.pack()
-        self.lbl_home_version = ttk.Label(center, text=i18n.t("home.version", version="1.2.8"))
+        self.lbl_home_version = ttk.Label(center, text=i18n.t("home.version", version=VERSION))
         self.lbl_home_version.pack(pady=(2, 10))
         self.lbl_home_product = ttk.Label(center, text=i18n.t("home.product"))
         self.lbl_home_product.pack(pady=(0, 16))

@@ -4,8 +4,8 @@ import json
 import threading
 
 # GitHub repository configuration
-GITHUB_API_URL = "https://api.github.com/repos/YOUR_USERNAME/YOUR_REPO/releases/latest"
-GITHUB_REPO_URL = "https://github.com/YOUR_USERNAME/YOUR_REPO"
+GITHUB_API_URL = "https://api.github.com/repos/Zaferius/BambamCovertSuite/releases/latest"
+GITHUB_REPO_URL = "https://github.com/Zaferius/BambamCovertSuite"
 
 def get_latest_version(callback):
     """

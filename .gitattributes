@@ -1,0 +1,10 @@
+# Exclude Inno Setup files from language statistics
+*.iss linguist-vendored
+
+# Exclude build and output directories
+build/* linguist-generated
+dist/* linguist-generated
+output/* linguist-generated
+
+# Mark documentation as documentation
+*.md linguist-documentation

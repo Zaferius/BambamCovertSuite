@@ -241,4 +241,4 @@ If you encounter any issues or have questions:
 
 ---
 
-Made with ❤️ by Zaferius
+Made by Zaferius

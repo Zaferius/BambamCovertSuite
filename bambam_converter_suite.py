@@ -31,8 +31,14 @@ class BambamConverterSuite:
         self.root.title(i18n.t("app.title"))
         self.root.geometry("900x850")  # biraz büyüttüm; advanced açılınca butonlar görünür kalsın
         self.root.resizable(False, False)
+        
+        # Set icon for main window and taskbar
         try:
-            self.root.iconbitmap("bambam_logo.ico")  # Window icon
+            if hasattr(sys, '_MEIPASS'):
+                icon_path = os.path.join(sys._MEIPASS, "bambam_logo.ico")
+            else:
+                icon_path = "bambam_logo.ico"
+            self.root.iconbitmap(icon_path)
         except:
             pass  # Icon bulunamazsa geç
 

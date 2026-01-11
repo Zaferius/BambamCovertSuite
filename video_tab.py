@@ -736,6 +736,15 @@ class VideoTab:
         self.gif_win = tk.Toplevel(self.root)
         self.gif_win.title(i18n.t("video.gif.window_title"))
         try:
+            import sys
+            if hasattr(sys, '_MEIPASS'):
+                icon_path = os.path.join(sys._MEIPASS, "bambam_logo.ico")
+            else:
+                icon_path = "bambam_logo.ico"
+            self.gif_win.iconbitmap(icon_path)
+        except Exception:
+            pass
+        try:
             self.gif_win.configure(bg=self.app.root_bg)
         except Exception:
             pass
@@ -832,6 +841,15 @@ class VideoTab:
         self.crop_win.geometry("700x400")
         self.crop_win.resizable(False, False)
         self.crop_win.protocol("WM_DELETE_WINDOW", self._close_crop_window)
+        try:
+            import sys
+            if hasattr(sys, '_MEIPASS'):
+                icon_path = os.path.join(sys._MEIPASS, "bambam_logo.ico")
+            else:
+                icon_path = "bambam_logo.ico"
+            self.crop_win.iconbitmap(icon_path)
+        except Exception:
+            pass
         try:
             self.crop_win.configure(bg=self.app.root_bg)
         except Exception:

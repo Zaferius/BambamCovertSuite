@@ -409,6 +409,15 @@ class ImageTab:
         self.presets_win = tk.Toplevel(self.root)
         self.presets_win.title(i18n.t("image.presets.window_title"))
         try:
+            import sys
+            if hasattr(sys, '_MEIPASS'):
+                icon_path = os.path.join(sys._MEIPASS, "bambam_logo.ico")
+            else:
+                icon_path = "bambam_logo.ico"
+            self.presets_win.iconbitmap(icon_path)
+        except Exception:
+            pass
+        try:
             self.presets_win.configure(bg=self.app.root_bg)
         except Exception:
             pass

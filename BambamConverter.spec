@@ -27,6 +27,10 @@ ffmpeg_path = os.path.join(project_dir, 'ffmpeg.exe')
 if os.path.exists(ffmpeg_path):
     binaries.append((ffmpeg_path, '.'))
 
+ffprobe_path = os.path.join(project_dir, 'ffprobe.exe')
+if os.path.exists(ffprobe_path):
+    binaries.append((ffprobe_path, '.'))
+
 a = Analysis(
     ['bambam_converter_suite.py'],
     pathex=[project_dir],
@@ -48,9 +52,19 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'matplotlib',
+        'scipy',
+        'pandas',
+        'pytest',
+        'unittest',
+        'pydoc',
+        'doctest',
+        'IPython',
+        'notebook',
+    ],
     noarchive=False,
-    optimize=0,
+    optimize=2,
 )
 pyz = PYZ(a.pure)
 
@@ -63,9 +77,9 @@ exe = EXE(
     name='BambamConverter',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
+    strip=True,
     upx=True,
-    upx_exclude=[],
+    upx_exclude=['vcruntime140.dll', 'python313.dll'],
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,

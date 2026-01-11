@@ -43,6 +43,10 @@ class DocumentTab:
         self.engine_type = "checking"
         self.engine_name = "Detecting..."
 
+        # Output location settings
+        self.mirror_to_source = tk.BooleanVar(value=False)
+        self.radio_var = None
+
         # Advanced settings
         self.advanced_visible = tk.BooleanVar(value=False)
         self.open_folder_when_done = tk.BooleanVar(value=False)
@@ -158,7 +162,10 @@ class DocumentTab:
         top_row.pack(fill="x", pady=(0, 2))
 
         self.btn_select = ttk.Button(top_row, text="Browse Documents...", command=self.select_files)
-        self.btn_select.pack(side="left", padx=(0, 10), pady=2)
+        self.btn_select.pack(side="left", padx=(0, 8), pady=2)
+        
+        self.btn_add_folder = ttk.Button(top_row, text="Add Folder...", command=self.add_folders)
+        self.btn_add_folder.pack(side="left", padx=(0, 8), pady=2)
 
         self.lbl_file_count = ttk.Label(top_row, text="Selected files: 0")
         self.lbl_file_count.pack(side="left", pady=2)
@@ -173,19 +180,48 @@ class DocumentTab:
         )
         self.lbl_hint.pack(anchor="w", pady=(4, 0))
 
-        # 2) Output folder (+ clear)
-        frame_output = ttk.LabelFrame(main_frame, text="2) Select Output Folder")
+        # Configure white text style for radio buttons without hover effect
+        try:
+            style = ttk.Style()
+            style.configure("White.TRadiobutton", 
+                          foreground=self.app.fg, 
+                          background=self.app.frame_bg)
+            style.map("White.TRadiobutton",
+                     background=[("active", self.app.frame_bg), ("!active", self.app.frame_bg)],
+                     foreground=[("active", self.app.fg), ("!active", self.app.fg)])
+        except Exception:
+            pass
+
+        # 2) Output Location
+        frame_output = ttk.LabelFrame(main_frame, text="2) Output Location")
         frame_output.pack(fill="x", **padding)
-
-        self.btn_output = ttk.Button(frame_output, text="Browse Folder...", command=self.select_output_dir)
-        self.btn_output.pack(side="left", padx=5, pady=5)
-
-        self.lbl_output_dir = ttk.Label(frame_output, text="Not selected")
+        
+        self.radio_var = tk.StringVar(value="mirror" if self.mirror_to_source.get() else "folder")
+        
+        # radio: use folder (üstte, browse button yanında)
+        row1 = ttk.Frame(frame_output); row1.pack(fill="x", padx=6, pady=(6, 2))
+        self.rb_folder = ttk.Radiobutton(row1, text="Use selected output folder",
+                                         value="folder", variable=self.radio_var,
+                                         command=self._on_output_mode_change)
+        self.rb_folder.pack(side="left")
+        self.rb_folder.configure(style="White.TRadiobutton")
+        self.btn_output = ttk.Button(row1, text="Browse Folder...", command=self.select_output_dir)
+        self.btn_output.pack(side="left", padx=(12, 8))
+        self.lbl_output_dir = ttk.Label(row1, text="Not selected")
         self.lbl_output_dir.configure(foreground="#c7b2ff")
-        self.lbl_output_dir.pack(side="left", padx=10)
-
-        btn_clear_out = ttk.Button(frame_output, text="Clear Output Folder", command=self.clear_output_folder_contents)
-        btn_clear_out.pack(side="right", padx=5)
+        self.lbl_output_dir.pack(side="left", padx=(6, 0))
+        btn_clear_out = ttk.Button(row1, text="Clear Output Folder", command=self.clear_output_folder_contents)
+        btn_clear_out.pack(side="right", padx=6)
+        
+        # radio: mirror to source (altta)
+        row2 = ttk.Frame(frame_output); row2.pack(fill="x", padx=6, pady=(2, 6))
+        self.rb_mirror = ttk.Radiobutton(row2, text="Same folder as source (mirror)",
+                                         value="mirror", variable=self.radio_var,
+                                         command=self._on_output_mode_change)
+        self.rb_mirror.pack(side="left")
+        self.rb_mirror.configure(style="White.TRadiobutton")
+        
+        # delete originals moved to advanced section
 
         # 3) Target format
         frame_format = ttk.LabelFrame(main_frame, text="3) Target Format")
@@ -272,11 +308,26 @@ class DocumentTab:
         frame_progress = ttk.LabelFrame(main_frame, text="5) Progress")
         frame_progress.pack(fill="x", **padding)
 
-        self.progress = ttk.Progressbar(frame_progress, mode="determinate")
-        self.progress.pack(fill="x", padx=10, pady=5)
-
-        self.lbl_progress = ttk.Label(frame_progress, text="0 / 0")
-        self.lbl_progress.pack(pady=2)
+        # Individual file progress (yellow bar)
+        file_prog_frame = ttk.Frame(frame_progress)
+        file_prog_frame.pack(fill="x", padx=10, pady=(4, 1))
+        self.lbl_file_prog = ttk.Label(file_prog_frame, text="", font=("", 8))
+        self.lbl_file_prog.pack(anchor="w", pady=(0, 1))
+        try:
+            style = ttk.Style()
+            style.configure("Yellow.Horizontal.TProgressbar", background="#ffd700", troughcolor="#2b2b2b", thickness=20)
+            self.file_progress = ttk.Progressbar(file_prog_frame, mode="determinate", style="Yellow.Horizontal.TProgressbar")
+        except Exception:
+            self.file_progress = ttk.Progressbar(file_prog_frame, mode="determinate")
+        self.file_progress.pack(fill="x", ipady=8)
+        
+        # Overall progress (main bar)
+        overall_prog_frame = ttk.Frame(frame_progress)
+        overall_prog_frame.pack(fill="x", padx=10, pady=(3, 4))
+        self.lbl_progress = ttk.Label(overall_prog_frame, text="Overall: 0 / 0", font=("", 8))
+        self.lbl_progress.pack(anchor="w", pady=(0, 1))
+        self.progress = ttk.Progressbar(overall_prog_frame, mode="determinate")
+        self.progress.pack(fill="x", ipady=8)
 
         # 6) Start button
         frame_actions = ttk.Frame(main_frame)
@@ -333,10 +384,12 @@ class DocumentTab:
         for p in paths:
             p = p.strip()
             if os.path.isdir(p):
-                for name in os.listdir(p):
-                    full = os.path.join(p, name)
-                    if os.path.isfile(full) and self.is_document_file(full):
-                        new_files.append(full)
+                # Recursively scan folder for document files
+                for rootdir, _, files in os.walk(p):
+                    for name in files:
+                        full = os.path.join(rootdir, name)
+                        if os.path.isfile(full) and self.is_document_file(full):
+                            new_files.append(full)
             elif os.path.isfile(p) and self.is_document_file(p):
                 new_files.append(p)
 
@@ -406,6 +459,40 @@ class DocumentTab:
             self.file_paths.extend(list(paths))
             self.file_paths = list(dict.fromkeys(self.file_paths))
             self.update_file_count()
+    
+    def add_folders(self):
+        """Add folders and scan for document files recursively"""
+        if self.engine_type not in ("word", "libreoffice"):
+            messagebox.showwarning(
+                "No engine",
+                "No office engine detected. Install LibreOffice or Microsoft Word and restart the app.",
+            )
+            return
+        
+        folders = []
+        while True:
+            d = filedialog.askdirectory(title="Select folder")
+            if not d:
+                break
+            folders.append(d)
+            if not messagebox.askyesno("Add another folder?", "Do you want to add another folder?"):
+                break
+        
+        if not folders:
+            return
+        
+        new_files = []
+        for folder in folders:
+            for rootdir, _, files in os.walk(folder):
+                for name in files:
+                    fp = os.path.join(rootdir, name)
+                    if os.path.isfile(fp) and self.is_document_file(fp):
+                        new_files.append(fp)
+        
+        if new_files:
+            self.file_paths.extend(new_files)
+            self.file_paths = list(dict.fromkeys(self.file_paths))
+            self.update_file_count()
 
     def select_output_dir(self):
         if self.engine_type not in ("word", "libreoffice"):
@@ -417,6 +504,23 @@ class DocumentTab:
             if len(short) > 45:
                 short = "..." + short[-45:]
             self.lbl_output_dir.config(text=short, foreground=self.app.fg)
+    
+    def _on_output_mode_change(self):
+        use_mirror = (self.radio_var.get() == "mirror")
+        self.mirror_to_source.set(use_mirror)
+        state = "disabled" if use_mirror else "normal"
+        self.btn_output.configure(state=state)
+        
+        if use_mirror:
+            self.lbl_output_dir.pack_forget()
+        else:
+            if not self.lbl_output_dir.winfo_ismapped():
+                self.lbl_output_dir.pack(side="left", padx=(6, 0))
+            if self.output_dir:
+                text = self.output_dir if len(self.output_dir) <= 45 else "..." + self.output_dir[-45:]
+                self.lbl_output_dir.configure(text=text, foreground=self.app.fg)
+            else:
+                self.lbl_output_dir.configure(text="Not selected", foreground="#c7b2ff")
 
     def start_conversion(self):
         if self.engine_type not in ("word", "libreoffice"):
@@ -438,12 +542,14 @@ class DocumentTab:
         if not self.file_paths:
             messagebox.showwarning("Warning", "Please select at least one document.")
             return
-        if not self.output_dir:
+        if not self.mirror_to_source.get() and not self.output_dir:
             messagebox.showwarning("Warning", "Please select an output folder.")
             return
 
         self.progress["value"] = 0
-        self.lbl_progress.config(text=f"0 / {len(self.file_paths)}")
+        self.file_progress["value"] = 0
+        self.lbl_progress.config(text=f"Overall: 0 / {len(self.file_paths)}")
+        self.lbl_file_prog.config(text="")
         self.btn_convert.config(state="disabled")
 
         t = threading.Thread(target=self.convert_documents, daemon=True)
@@ -497,20 +603,30 @@ class DocumentTab:
 
     def _convert_with_libreoffice(self, convert_filter, out_ext, preserve_ts, delete_orig, converted_paths, errors_list):
         for idx, path in enumerate(self.file_paths, start=1):
+            filename = os.path.basename(path)
+            self.root.after(0, lambda f=filename: self.lbl_file_prog.config(text=f"Processing: {f}"))
+            self.root.after(0, lambda: self.file_progress.config(value=0))
+            
             try:
+                # Determine output directory
+                if self.mirror_to_source.get():
+                    out_dir = os.path.dirname(path)
+                else:
+                    out_dir = self.output_dir
+                
                 base_name = os.path.splitext(os.path.basename(path))[0].replace(os.sep, "_")
-                out_path = os.path.join(self.output_dir, f"{base_name}.{out_ext}")
+                out_path = os.path.join(out_dir, f"{base_name}.{out_ext}")
                 out_path = self._avoid_overwrite(out_path)
 
                 cmd = [
                     "soffice", "--headless", "--convert-to", convert_filter,
-                    "--outdir", self.output_dir, path,
+                    "--outdir", out_dir, path,
                 ]
                 result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 if result.returncode != 0:
                     raise RuntimeError(result.stderr.strip() or "soffice error")
 
-                produced_path = os.path.join(self.output_dir, f"{os.path.splitext(os.path.basename(path))[0]}.{out_ext}")
+                produced_path = os.path.join(out_dir, f"{os.path.splitext(os.path.basename(path))[0]}.{out_ext}")
                 if not os.path.exists(produced_path) and os.path.exists(out_path):
                     produced_path = out_path
 
@@ -534,6 +650,7 @@ class DocumentTab:
             except Exception as e:
                 errors_list.append((path, str(e)))
 
+            self.root.after(0, lambda: self.file_progress.config(value=100))
             self.root.after(0, self.update_progress, idx, len(self.file_paths))
 
     # ----- Word conversion -----
@@ -571,14 +688,24 @@ class DocumentTab:
             word.Visible = False
 
             for idx, path in enumerate(self.file_paths, start=1):
+                filename = os.path.basename(path)
+                self.root.after(0, lambda f=filename: self.lbl_file_prog.config(text=f"Processing: {f}"))
+                self.root.after(0, lambda: self.file_progress.config(value=0))
+                
                 try:
+                    # Determine output directory
+                    if self.mirror_to_source.get():
+                        out_dir = os.path.dirname(path)
+                    else:
+                        out_dir = self.output_dir
+                    
                     ext = os.path.splitext(path)[1].lower()
                     if ext not in [".doc", ".docx", ".rtf", ".txt", ".html", ".htm"]:
                         raise RuntimeError("This file type is not supported by Word engine.")
 
                     doc = word.Documents.Open(path)
                     base_name = os.path.splitext(os.path.basename(path))[0].replace(os.sep, "_")
-                    out_path = os.path.join(self.output_dir, f"{base_name}.{out_ext}")
+                    out_path = os.path.join(out_dir, f"{base_name}.{out_ext}")
                     out_path = self._avoid_overwrite(out_path)
 
                     doc.SaveAs(out_path, FileFormat=fileformat)
@@ -604,6 +731,7 @@ class DocumentTab:
                 except Exception as e:
                     errors_list.append((path, str(e)))
 
+                self.root.after(0, lambda: self.file_progress.config(value=100))
                 self.root.after(0, self.update_progress, idx, len(self.file_paths))
         finally:
             if word is not None:
@@ -645,7 +773,7 @@ class DocumentTab:
     def update_progress(self, current, total):
         percent = (current / max(1, total)) * 100
         self.progress["value"] = percent
-        self.lbl_progress.config(text=f"{current} / {total}")
+        self.lbl_progress.config(text=f"Overall: {current} / {total}")
 
     def finish_conversion(self, total, errors, converted_paths, open_folder):
         self.btn_convert.config(state="normal")

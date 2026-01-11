@@ -55,28 +55,37 @@ class ImageTab:
         self.lbl_hint = None
         self.is_busy = False
 
-        # presets
+        # presets (temporarily disabled)
+        self.presets_enabled = False
         self.presets = {}
         self.presets_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image_presets.json")
 
         self._build_ui()
         self._setup_drag_and_drop()
-        self._load_presets()
+        if self.presets_enabled:
+            self._load_presets()
 
     # ---------------- UI ----------------
     def _build_ui(self):
         pad = {"padx": 10, "pady": 5}
         main = ttk.Frame(self.parent)
         main.pack(fill="both", expand=True, padx=8, pady=8)
+        
+        # Configure white text style for radio buttons without hover effect
+        try:
+            style = ttk.Style()
+            style.configure("White.TRadiobutton", 
+                          foreground=self.app.fg, 
+                          background=self.app.frame_bg)
+            style.map("White.TRadiobutton",
+                     background=[("active", self.app.frame_bg), ("!active", self.app.frame_bg)],
+                     foreground=[("active", self.app.fg), ("!active", self.app.fg)])
+        except Exception:
+            pass
 
-        header = ttk.Frame(main)
-        header.pack(fill="x", pady=(0, 8))
-        self.lbl_title = ttk.Label(header, text=i18n.t("image.title"),
+        self.lbl_title = ttk.Label(main, text=i18n.t("image.title"),
                                    font=("Segoe UI", 12, "bold"))
-        self.lbl_title.pack(side="left")
-        self.btn_presets = ttk.Button(header, text=i18n.t("image.header.presets"), command=self._open_presets_window)
-        self.btn_presets\
-            .pack(side="right")
+        self.lbl_title.pack(pady=(0, 8))
 
         # 1) Select images (drop zone)
         self.lf_select = ttk.LabelFrame(main, text=i18n.t("image.section.select"))
@@ -120,26 +129,28 @@ class ImageTab:
 
         self.radio_var = tk.StringVar(value="mirror" if self.mirror_to_source.get() else "folder")
 
-        # radio: mirror to source (default, üstte)
+        # radio: use folder (üstte, browse button yanında)
         row1 = ttk.Frame(out); row1.pack(fill="x", padx=6, pady=(6, 2))
-        self.rb_mirror = ttk.Radiobutton(row1, text=i18n.t("image.output.radio.mirror"),
-                                         value="mirror", variable=self.radio_var,
-                                         command=self._on_output_mode_change)
-        self.rb_mirror.pack(side="left")
-
-        # radio: use folder (altta)
-        row2 = ttk.Frame(out); row2.pack(fill="x", padx=6, pady=(2, 6))
-        self.rb_folder = ttk.Radiobutton(row2, text=i18n.t("image.output.radio.folder"),
+        self.rb_folder = ttk.Radiobutton(row1, text=i18n.t("image.output.radio.folder"),
                                          value="folder", variable=self.radio_var,
                                          command=self._on_output_mode_change)
         self.rb_folder.pack(side="left")
-        self.btn_output_browse = ttk.Button(row2, text=i18n.t("image.output.btn.browse"), command=self.select_output_dir)
+        self.rb_folder.configure(style="White.TRadiobutton")
+        self.btn_output_browse = ttk.Button(row1, text=i18n.t("image.output.btn.browse"), command=self.select_output_dir)
         self.btn_output_browse.pack(side="left", padx=(12, 8))
-        self.lbl_output_dir = ttk.Label(row2, text=i18n.t("image.output.label.not_selected"))
+        self.lbl_output_dir = ttk.Label(row1, text=i18n.t("image.output.label.not_selected"))
         self.lbl_output_dir.configure(foreground="#c7b2ff")
         self.lbl_output_dir.pack(side="left", padx=(6, 0))
-        self.btn_output_clear = ttk.Button(row2, text=i18n.t("image.output.btn.clear"), command=self._clear_output_folder)
+        self.btn_output_clear = ttk.Button(row1, text=i18n.t("image.output.btn.clear"), command=self._clear_output_folder)
         self.btn_output_clear.pack(side="right", padx=6)
+
+        # radio: mirror to source (altta)
+        row2 = ttk.Frame(out); row2.pack(fill="x", padx=6, pady=(2, 6))
+        self.rb_mirror = ttk.Radiobutton(row2, text=i18n.t("image.output.radio.mirror"),
+                                         value="mirror", variable=self.radio_var,
+                                         command=self._on_output_mode_change)
+        self.rb_mirror.pack(side="left")
+        self.rb_mirror.configure(style="White.TRadiobutton")
 
         # delete originals
         self.chk_delete_originals = ttk.Checkbutton(out, text=i18n.t("image.output.delete_originals"),
@@ -230,10 +241,30 @@ class ImageTab:
         self.lf_progress = ttk.LabelFrame(main, text=i18n.t("image.section.progress"))
         prog = self.lf_progress
         prog.pack(fill="x", **pad)
-        self.progress = ttk.Progressbar(prog, mode="determinate")
-        self.progress.pack(fill="x", padx=10, pady=5)
-        self.lbl_progress = ttk.Label(prog, text=i18n.t("image.progress.initial")); self.lbl_progress.pack(pady=(0, 2))
-        self.lbl_status = ttk.Label(prog, text=i18n.t("image.status.idle")); self.lbl_status.pack(pady=(0, 5))
+        
+        # Individual file progress (yellow bar)
+        file_prog_frame = ttk.Frame(prog)
+        file_prog_frame.pack(fill="x", padx=10, pady=(4, 1))
+        self.lbl_file_prog = ttk.Label(file_prog_frame, text="", font=("", 8))
+        self.lbl_file_prog.pack(anchor="w", pady=(0, 1))
+        try:
+            style = ttk.Style()
+            style.configure("Yellow.Horizontal.TProgressbar", background="#ffd700", troughcolor="#2b2b2b", thickness=20)
+            self.file_progress = ttk.Progressbar(file_prog_frame, mode="determinate", style="Yellow.Horizontal.TProgressbar")
+        except Exception:
+            self.file_progress = ttk.Progressbar(file_prog_frame, mode="determinate")
+        self.file_progress.pack(fill="x", ipady=8)
+        
+        # Overall progress (main bar)
+        overall_prog_frame = ttk.Frame(prog)
+        overall_prog_frame.pack(fill="x", padx=10, pady=(3, 4))
+        self.lbl_progress = ttk.Label(overall_prog_frame, text=i18n.t("image.progress.initial"), font=("", 8))
+        self.lbl_progress.pack(anchor="w", pady=(0, 1))
+        self.progress = ttk.Progressbar(overall_prog_frame, mode="determinate")
+        self.progress.pack(fill="x", ipady=8)
+        
+        self.lbl_status = ttk.Label(prog, text=i18n.t("image.status.idle"))
+        self.lbl_status.pack(pady=(2, 4))
 
         # 6) Actions
         actions = ttk.Frame(main); actions.pack(pady=10)
@@ -325,28 +356,31 @@ class ImageTab:
         self.mirror_to_source.set(use_mirror)
         # output dir satırını enable/disable et
         state = "disabled" if use_mirror else "normal"
-        # labelframe içindeki Browse ve label'ı bul
-        # (ilk satırda oldukları için pack_slaves ile erişiyoruz)
-        # sadece görsel disable etkisi için butonu disable ediyoruz
-        for child in self.lbl_output_dir.master.pack_slaves():
-            if isinstance(child, ttk.Button):
-                child.configure(state=state)
+        self.btn_output_browse.configure(state=state)
+        self.btn_output_clear.configure(state=state)
+        
+        # Update label visibility and text
         if use_mirror:
-            text = i18n.t("image.output.label.using_source")
+            # Hide the output folder label when using mirror mode
+            self.lbl_output_dir.pack_forget()
         else:
+            # Show the output folder label
+            if not self.lbl_output_dir.winfo_ismapped():
+                self.lbl_output_dir.pack(side="left", padx=(6, 0))
             if self.output_dir:
                 text = self.output_dir if len(self.output_dir) <= 45 else "..." + self.output_dir[-45:]
+                self.lbl_output_dir.configure(text=text, foreground=self.app.fg)
             else:
-                text = i18n.t("image.output.label.not_selected")
-        self.lbl_output_dir.configure(
-            text=text,
-            foreground=self.app.fg if not use_mirror else "#c7ffcf",
-        )
+                self.lbl_output_dir.configure(text=i18n.t("image.output.label.not_selected"), foreground="#c7b2ff")
+        
         # "Original" + delete originals kombinasyonunda guard
         self._update_delete_guard()
 
     # ------------- Presets -------------
     def _load_presets(self):
+        if not self.presets_enabled:
+            self.presets = {}
+            return
         try:
             if os.path.exists(self.presets_path):
                 with open(self.presets_path, "r", encoding="utf-8") as f:
@@ -357,6 +391,8 @@ class ImageTab:
             self.presets = {}
 
     def _save_presets(self):
+        if not self.presets_enabled:
+            return
         try:
             with open(self.presets_path, "w", encoding="utf-8") as f:
                 json.dump(self.presets, f, indent=2)
@@ -364,6 +400,8 @@ class ImageTab:
             messagebox.showwarning(i18n.t("image.presets.warning.title"), i18n.t("image.presets.warning.save_failed"))
 
     def _open_presets_window(self):
+        if not self.presets_enabled:
+            return
         if hasattr(self, "presets_win") and self.presets_win is not None and tk.Toplevel.winfo_exists(self.presets_win):
             self.presets_win.lift()
             return
@@ -406,6 +444,8 @@ class ImageTab:
         self._refresh_presets_list()
 
     def _refresh_presets_list(self):
+        if not self.presets_enabled:
+            return
         if not hasattr(self, "lst_presets"):
             return
         self.lst_presets.delete(0, tk.END)
@@ -413,6 +453,8 @@ class ImageTab:
             self.lst_presets.insert(tk.END, name)
 
     def _get_selected_preset_name(self):
+        if not self.presets_enabled:
+            return None
         if not hasattr(self, "lst_presets"):
             return None
         sel = self.lst_presets.curselection()
@@ -421,6 +463,8 @@ class ImageTab:
         return self.lst_presets.get(sel[0])
 
     def _add_current_as_preset(self):
+        if not self.presets_enabled:
+            return
         name = self.preset_name_var.get().strip()
         if not name:
             messagebox.showwarning(i18n.t("image.presets.warning.title"), i18n.t("image.presets.warning.no_name"))
@@ -445,6 +489,8 @@ class ImageTab:
         self._refresh_presets_list()
 
     def _delete_selected_preset(self):
+        if not self.presets_enabled:
+            return
         name = self._get_selected_preset_name()
         if not name:
             return
@@ -454,6 +500,8 @@ class ImageTab:
             self._refresh_presets_list()
 
     def _apply_selected_preset(self):
+        if not self.presets_enabled:
+            return
         name = self._get_selected_preset_name()
         if not name:
             return
@@ -669,7 +717,9 @@ class ImageTab:
         self.is_busy = True
         self.btn_convert.config(state="disabled")
         self.progress["value"] = 0
-        self.lbl_progress.config(text=f"0 / {len(jobs)}")
+        self.file_progress["value"] = 0
+        self.lbl_progress.config(text=f"Overall: 0 / {len(jobs)}")
+        self.lbl_file_prog.config(text="")
         self.lbl_status.config(text=i18n.t("image.status.processing"))
 
         threading.Thread(target=self._convert_worker, args=(jobs,), daemon=True).start()
@@ -682,7 +732,13 @@ class ImageTab:
         pil_format, ext = IMAGE_FORMAT_MAP.get(fmt_key, ("PNG", "png"))
 
         idx = 0
+        last_output_dir = None
         for i, src_path in enumerate(jobs, start=1):
+            # Update file progress
+            filename = os.path.basename(src_path)
+            self.root.after(0, lambda f=filename: self.lbl_file_prog.config(text=f"Processing: {f}"))
+            self.root.after(0, lambda: self.file_progress.config(value=0))
+            
             try:
                 src_dir = os.path.dirname(src_path)
                 # çıkış klasörü
@@ -714,6 +770,7 @@ class ImageTab:
                             kwargs = dict(quality=q, method=6)
 
                         img.save(out_path, pil_format, **kwargs)
+                        last_output_dir = os.path.dirname(out_path)
 
                         # başarılıysa, istenirse orijinali sil
                         if self.delete_originals.get():
@@ -727,9 +784,11 @@ class ImageTab:
                 errors.append((src_path, str(e)))
 
             idx = i
+            # Set file progress to 100% when done
+            self.root.after(0, lambda: self.file_progress.config(value=100))
             self.root.after(0, self._tick_progress, idx, total)
 
-        self.root.after(0, self._finish_progress, total, errors)
+        self.root.after(0, self._finish_progress, total, errors, last_output_dir)
 
     def _build_base_name(self, src_path: str, idx: int) -> str:
         orig_name = os.path.splitext(os.path.basename(src_path))[0]
@@ -755,9 +814,9 @@ class ImageTab:
 
     def _tick_progress(self, current, total):
         self.progress["value"] = (current / total) * 100
-        self.lbl_progress.config(text=f"{current} / {total}")
+        self.lbl_progress.config(text=f"Overall: {current} / {total}")
 
-    def _finish_progress(self, total, errors):
+    def _finish_progress(self, total, errors, last_output_dir=None):
         self.is_busy = False
         self.btn_convert.config(state="normal")
         if errors:
@@ -777,6 +836,10 @@ class ImageTab:
                 i18n.t("image.result.done_title"),
                 i18n.t("image.result.done_message", total=total),
             )
+            target_dir = last_output_dir or (self.output_dir if not self.mirror_to_source.get() else None)
+            if not target_dir and self.mirror_to_source.get() and self.file_paths:
+                target_dir = os.path.dirname(self.file_paths[0])
+            self.app.open_folder_if_enabled(target_dir)
 
     # ------------- Clear helpers -------------
     def _clear_selected(self):

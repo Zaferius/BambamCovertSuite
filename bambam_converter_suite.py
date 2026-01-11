@@ -1,8 +1,10 @@
-import tkinter as tk
-from tkinter import ttk
-import tkinter.font as tkfont
-import argparse
+import os
 import sys
+import tkinter as tk
+import tkinter.font as tkfont
+from tkinter import ttk
+import argparse
+import subprocess
 
 import localization as i18n
 
@@ -17,6 +19,7 @@ from sound_tab import SoundTab
 from video_tab import VideoTab
 from document_tab import DocumentTab  # sende zaten vardı
 from batch_rename_tab import BatchRenameTab
+from settings_tab import SettingsTab
 
 class BambamConverterSuite:
     def __init__(self, root):
@@ -59,6 +62,7 @@ class BambamConverterSuite:
         self.video_frame = ttk.Frame(self.notebook)
         self.document_frame = ttk.Frame(self.notebook)
         self.rename_frame = ttk.Frame(self.notebook)
+        self.settings_frame = ttk.Frame(self.notebook)
 
         self.notebook.add(self.home_frame, text=i18n.t("tabs.home"))
         self.notebook.add(self.image_frame, text=i18n.t("tabs.image"))
@@ -66,6 +70,7 @@ class BambamConverterSuite:
         self.notebook.add(self.video_frame, text=i18n.t("tabs.video"))
         self.notebook.add(self.document_frame, text=i18n.t("tabs.document"))
         self.notebook.add(self.rename_frame, text=i18n.t("tabs.rename"))
+        self.notebook.add(self.settings_frame, text=i18n.t("tabs.settings"))
 
         # Build contents
         self._build_home()
@@ -74,6 +79,7 @@ class BambamConverterSuite:
         self.video_tab = VideoTab(self, self.video_frame)     # Original seçeneği eklendi
         self.document_tab = DocumentTab(self, self.document_frame)
         self.rename_tab = BatchRenameTab(self, self.rename_frame)
+        self.settings_tab = SettingsTab(self, self.settings_frame)
 
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
@@ -150,6 +156,7 @@ class BambamConverterSuite:
             self.notebook.tab(self.video_frame, text=i18n.t("tabs.video"))
             self.notebook.tab(self.document_frame, text=i18n.t("tabs.document"))
             self.notebook.tab(self.rename_frame, text=i18n.t("tabs.rename"))
+            self.notebook.tab(self.settings_frame, text=i18n.t("tabs.settings"))
         except Exception:
             pass
 
@@ -181,7 +188,8 @@ class BambamConverterSuite:
                     getattr(self, "sound_tab", None),
                     getattr(self, "video_tab", None),
                     getattr(self, "document_tab", None),
-                    getattr(self, "rename_tab", None)):
+                    getattr(self, "rename_tab", None),
+                    getattr(self, "settings_tab", None)):
             if tab is not None and hasattr(tab, "refresh_language"):
                 try:
                     tab.refresh_language()
@@ -260,6 +268,25 @@ class BambamConverterSuite:
         self.btn_home_rename = ttk.Button(btns, text=i18n.t("home.btn.rename"),
                                           command=lambda: self.notebook.select(self.rename_frame))
         self.btn_home_rename.pack(side="left", padx=8)
+
+    # ----------- Settings helpers -----------
+    def should_auto_open(self) -> bool:
+        return bool(getattr(self.settings_tab, "should_auto_open", lambda: False)())
+
+    def open_folder_if_enabled(self, path: str | None):
+        if not path or not os.path.isdir(path):
+            return
+        if not self.should_auto_open():
+            return
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(path)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except Exception:
+            pass
 
     @staticmethod
     def cli_convert(src, fmt, out_dir):

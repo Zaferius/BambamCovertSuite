@@ -1,0 +1,105 @@
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+
+from app.db.session import get_db
+from app.schemas.job import JobResponse
+from app.schemas.video import VideoJobCreateResponse
+from app.services.jobs import JobService
+from app.services.storage import StorageService
+from app.services.upload_validation import UploadValidationService
+from app.services.video_service import VIDEO_FORMATS
+from app.tasks.video_tasks import run_video_conversion
+from app.worker import enqueue_job
+
+
+router = APIRouter(prefix="/video", tags=["video"])
+
+
+@router.post("/jobs", response_model=VideoJobCreateResponse)
+async def create_video_job(
+    file: UploadFile = File(...),
+    target_format: str = Query(default="MP4"),
+    fps: int = Query(default=0, ge=0),
+    resize_enabled: bool = Query(default=False),
+    width: int | None = Query(default=None, ge=1),
+    height: int | None = Query(default=None, ge=1),
+    db: Session = Depends(get_db),
+) -> VideoJobCreateResponse:
+    normalized_format = target_format.upper()
+    if normalized_format not in VIDEO_FORMATS:
+        raise HTTPException(status_code=400, detail="Unsupported video target format")
+
+    if resize_enabled and (width is None or height is None):
+        raise HTTPException(status_code=400, detail="Width and height are required when resize is enabled")
+
+    storage_service = StorageService()
+    job_service = JobService(db)
+    validator = UploadValidationService()
+
+    await validator.validate_file(file, allowed_extensions=storage_service.settings.allowed_video_extensions)
+
+    input_path = await storage_service.persist_upload(file)
+
+    job = job_service.create_job(
+        job_type="video",
+        original_filename=file.filename or "upload.bin",
+        stored_filename=input_path.name,
+        input_path=str(input_path),
+    )
+
+    enqueue_job(
+        run_video_conversion,
+        job.id,
+        normalized_format,
+        fps,
+        resize_enabled,
+        width,
+        height,
+        job_timeout=storage_service.settings.queue_video_timeout,
+        retry_max=1,
+    )
+
+    return VideoJobCreateResponse(
+        job_id=job.id,
+        status="queued",
+        target_format=normalized_format,
+        fps=fps,
+        resize_enabled=resize_enabled,
+        width=width,
+        height=height,
+        original_filename=job.original_filename,
+        output_filename=None,
+        download_url=None,
+    )
+
+
+@router.get("/jobs/{job_id}", response_model=JobResponse)
+def get_video_job(job_id: str, db: Session = Depends(get_db)) -> JobResponse:
+    service = JobService(db)
+    job = service.get_job(job_id)
+
+    if job is None or job.job_type != "video":
+        raise HTTPException(status_code=404, detail="Video job not found")
+
+    return job
+
+
+@router.get("/jobs/{job_id}/download")
+def download_video_result(job_id: str, db: Session = Depends(get_db)) -> FileResponse:
+    service = JobService(db)
+    job = service.get_job(job_id)
+
+    if job is None or job.job_type != "video":
+        raise HTTPException(status_code=404, detail="Video job not found")
+
+    if job.status != "completed" or not job.output_path:
+        raise HTTPException(status_code=409, detail="Video job is not ready for download")
+
+    output_path = Path(job.output_path)
+    if not output_path.exists():
+        raise HTTPException(status_code=404, detail="Converted file is missing")
+
+    return FileResponse(path=output_path, filename=output_path.name)

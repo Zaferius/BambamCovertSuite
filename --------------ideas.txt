@@ -1,0 +1,1 @@
+-Panelde AI sekmesi olsun ve bu sekmede AI Model baglama API baglama kısmı olsun. Herhangi bir ai model bağladıktan sonra bir telegram bot gibi bir sey ile chat yaparak conversion islemlerini uzaktan yaptırabilelim. örnneğin: sana attıgım bu videonun baştan 5 saniyesini kesip .mp4 formatına cevirir misin?

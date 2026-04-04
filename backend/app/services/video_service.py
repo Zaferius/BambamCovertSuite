@@ -1,0 +1,85 @@
+import os
+import subprocess
+from pathlib import Path
+
+
+VIDEO_FORMATS = {"MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"}
+
+
+def get_ffmpeg_cmd() -> list[str]:
+    exe = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    here = os.path.dirname(os.path.abspath(__file__))
+    local = os.path.join(here, exe)
+    if os.path.exists(local):
+        return [local]
+    return ["ffmpeg"]
+
+
+class VideoConversionService:
+    def build_command(
+        self,
+        *,
+        source_path: Path,
+        output_path: Path,
+        target_format: str,
+        fps: int = 0,
+        resize_enabled: bool = False,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> list[str]:
+        normalized_format = target_format.upper()
+
+        if normalized_format not in VIDEO_FORMATS:
+            raise ValueError(f"Unsupported target format: {target_format}")
+
+        cmd = get_ffmpeg_cmd() + ["-y", "-i", str(source_path)]
+
+        if resize_enabled:
+            if not width or not height:
+                raise ValueError("Width and height are required when resize is enabled")
+            cmd += [
+                "-vf",
+                f"scale=w={width}:h={height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2",
+            ]
+
+        if fps > 0:
+            cmd += ["-r", str(fps)]
+
+        ext = normalized_format.lower()
+        vcodec = "libx264" if ext in {"mp4", "mov", "mkv", "avi"} else ("libvpx-vp9" if ext == "webm" else "gif")
+        acodec = "aac" if ext in {"mp4", "mov", "mkv", "avi"} else ("libopus" if ext == "webm" else None)
+
+        if ext != "gif":
+            cmd += ["-c:v", vcodec]
+            if acodec is not None:
+                cmd += ["-c:a", acodec]
+
+        cmd += [str(output_path)]
+        return cmd
+
+    def convert(
+        self,
+        *,
+        source_path: Path,
+        output_path: Path,
+        target_format: str,
+        fps: int = 0,
+        resize_enabled: bool = False,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> Path:
+        cmd = self.build_command(
+            source_path=source_path,
+            output_path=output_path,
+            target_format=target_format,
+            fps=fps,
+            resize_enabled=resize_enabled,
+            width=width,
+            height=height,
+        )
+
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr or "FFmpeg video conversion error")
+
+        return output_path

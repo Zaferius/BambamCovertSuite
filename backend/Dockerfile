@@ -9,6 +9,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libreoffice-core libreoffice-writer \
     && rm -rf /var/lib/apt/lists/*
 
+RUN ffmpeg -version \
+    && ffprobe -version \
+    && libreoffice --version
+
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 

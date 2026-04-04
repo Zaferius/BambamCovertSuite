@@ -50,6 +50,11 @@ This repository now includes an in-progress self-hosted web application stack al
 docker compose up --build
 ```
 
+Docker self-host note:
+
+- `api` and `worker` images include FFmpeg + FFprobe + LibreOffice during image build
+- host machine does **not** need separate FFmpeg/FFprobe installation for web app usage
+
 Default local endpoints:
 
 - Frontend: `http://localhost:3000`
@@ -202,6 +207,9 @@ Simply download `BambamConverter.exe` and run it!
 - **Python 3.13** or higher
 - **FFmpeg & FFprobe** (download from [ffmpeg.org](https://ffmpeg.org/download.html))
 - **LibreOffice** (optional, for document conversion)
+
+> This prerequisite list is for desktop/source execution path.
+> For Dockerized web self-host, conversion dependencies are bundled inside the backend images.
 
 #### Installation Steps
 

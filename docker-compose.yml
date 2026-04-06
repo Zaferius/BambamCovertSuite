@@ -5,7 +5,8 @@ services:
       dockerfile: backend/Dockerfile
     container_name: bambam-api
     env_file:
-      - backend/.env.example
+      - path: backend/.env.example
+        required: false
     ports:
       - "8000:8000"
     volumes:
@@ -29,7 +30,8 @@ services:
       dockerfile: backend/Dockerfile
     container_name: bambam-worker
     env_file:
-      - backend/.env.example
+      - path: backend/.env.example
+        required: false
     command: python -m app.worker
     volumes:
       - ./data/uploads:/data/uploads
@@ -52,7 +54,8 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: bambam-frontend
     env_file:
-      - frontend/.env.example
+      - path: frontend/.env.example
+        required: false
     ports:
       - "3000:3000"
     depends_on:

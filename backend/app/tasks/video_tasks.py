@@ -13,6 +13,9 @@ def run_video_conversion(
     resize_enabled: bool,
     width: int | None,
     height: int | None,
+    trim_enabled: bool,
+    trim_start: float | None,
+    trim_end: float | None,
 ) -> dict[str, str]:
     db = SessionLocal()
 
@@ -40,6 +43,9 @@ def run_video_conversion(
             resize_enabled=resize_enabled,
             width=width,
             height=height,
+            trim_enabled=trim_enabled,
+            trim_start=trim_start,
+            trim_end=trim_end,
         )
         job_service.mark_completed(job, str(output_path))
 

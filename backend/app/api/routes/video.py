@@ -26,6 +26,9 @@ async def create_video_job(
     resize_enabled: bool = Query(default=False),
     width: int | None = Query(default=None, ge=1),
     height: int | None = Query(default=None, ge=1),
+    trim_enabled: bool = Query(default=False),
+    trim_start: float | None = Query(default=None, ge=0),
+    trim_end: float | None = Query(default=None, ge=0),
     db: Session = Depends(get_db),
 ) -> VideoJobCreateResponse:
     normalized_format = target_format.upper()
@@ -34,6 +37,12 @@ async def create_video_job(
 
     if resize_enabled and (width is None or height is None):
         raise HTTPException(status_code=400, detail="Width and height are required when resize is enabled")
+
+    if trim_enabled:
+        if trim_start is None or trim_end is None:
+            raise HTTPException(status_code=400, detail="trim_start and trim_end are required when trim is enabled")
+        if trim_end <= trim_start:
+            raise HTTPException(status_code=400, detail="trim_end must be greater than trim_start")
 
     storage_service = StorageService()
     job_service = JobService(db)
@@ -58,6 +67,9 @@ async def create_video_job(
         resize_enabled,
         width,
         height,
+        trim_enabled,
+        trim_start,
+        trim_end,
         job_timeout=storage_service.settings.queue_video_timeout,
         retry_max=1,
     )
@@ -70,6 +82,9 @@ async def create_video_job(
         resize_enabled=resize_enabled,
         width=width,
         height=height,
+        trim_enabled=trim_enabled,
+        trim_start=trim_start,
+        trim_end=trim_end,
         original_filename=job.original_filename,
         output_filename=None,
         download_url=None,

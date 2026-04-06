@@ -9,6 +9,9 @@ class VideoJobCreateResponse(BaseModel):
     resize_enabled: bool
     width: int | None = None
     height: int | None = None
+    trim_enabled: bool = False
+    trim_start: float | None = None
+    trim_end: float | None = None
     original_filename: str
     output_filename: str | None = None
     download_url: str | None = None
@@ -20,3 +23,6 @@ class VideoJobRequest(BaseModel):
     resize_enabled: bool = Field(default=False)
     width: int | None = Field(default=None, ge=1)
     height: int | None = Field(default=None, ge=1)
+    trim_enabled: bool = Field(default=False)
+    trim_start: float | None = Field(default=None, ge=0)
+    trim_end: float | None = Field(default=None, ge=0)

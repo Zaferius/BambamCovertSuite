@@ -15,6 +15,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Web-based image conversion
 - Web-based sound conversion
 - Web-based video conversion
+- Minimal single-file video trim UI with dual-handle range selection (start/end)
 - Web-based document conversion through LibreOffice headless
 - Job dashboard/history view
 - Manual cleanup endpoint for finished and stale jobs
@@ -24,7 +25,7 @@ This repository now includes an in-progress self-hosted web application stack al
 
 ### Current Web Limitations
 
-- Advanced desktop-only options such as rename patterns, crop/trim parity, and some power-user settings are not yet fully ported
+- Advanced desktop-only options such as crop parity and some power-user settings are not yet fully ported
 - Authentication is still intentionally lightweight for local/self-hosted usage
 - Production deployment beyond local or trusted-network use still needs additional security review
 
@@ -34,21 +35,41 @@ This repository now includes an in-progress self-hosted web application stack al
 |---|---|---|---|---|
 | Image | Yes | Yes | Yes | Core web workflow implemented |
 | Sound | Yes | Yes | Yes | Bitrate control available |
-| Video | Yes | Yes | Yes | Basic format/FPS/resize workflow implemented |
+| Video | Yes | Yes | Yes | Basic format/FPS/resize + single-file trim workflow implemented |
 | Document | Yes | Yes | Yes | LibreOffice headless only |
 | Batch Rename | No | No | No | Not yet ported to web |
 
 ### Web UI Snapshot
 
-- Landing: centered Bambam logo + `Bambam Converter Suite` + `Version 1.3.0`
-- Top navbar switches screens instantly between Landing, Image, Sound, Video, Document, and Jobs
-- Live cards show API health and job counters from backend endpoints
+- Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
+- Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, and Jobs
+- Video screen includes minimal trim area (preview + dual-handle range slider + manual start/end inputs)
 
 ## 🚀 Web App Quick Start
 
 ```bash
 docker compose up --build
 ```
+
+### ⚡ Fast Development Loop (No Full Redeploy on Every Change)
+
+Use the dev override file for hot-reload behavior in frontend and backend:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+After initial build, run without rebuild for normal code-only edits:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+Notes:
+
+- `api` runs with Uvicorn reload in dev override
+- `frontend` uses bind mount + polling-friendly watcher env vars for Docker Desktop on Windows
+- full rebuild is typically only needed after dependency changes (`requirements.txt`, `package.json`)
 
 Docker self-host note:
 
@@ -98,6 +119,7 @@ These help control upload limits and long-running worker behavior for self-hoste
 - `POST /image/jobs`
 - `POST /audio/jobs`
 - `POST /video/jobs`
+  - supports optional trim query params: `trim_enabled`, `trim_start`, `trim_end` (single-file flow)
 - `POST /document/jobs`
 - `GET /jobs`
 - `GET /jobs/{job_id}`
@@ -130,6 +152,14 @@ Frontend rebuild note after UI code changes:
 docker compose up -d --build frontend
 ```
 
+Local IDE/type-check note for frontend development:
+
+```bash
+cd frontend
+npm install
+npx tsc --noEmit
+```
+
 ## 📦 Release Readiness Notes
 
 Operational and maintenance documentation for the self-hosted web app is available in:
@@ -137,6 +167,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/operations-checklist.md](plans/operations-checklist.md)`
 - `[plans/backup-restore.md](plans/backup-restore.md)`
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
+- `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
 ![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
@@ -337,7 +368,14 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.0 (Latest)
+### Version 1.3.1 (Latest)
+- ✨ Home landing updated to centered hero layout with larger Bambam logo and quick tool buttons
+- ✨ Navbar labels simplified (removed `Converter` suffix in top navigation)
+- ✨ Added minimal video trim UX in web app with dual-handle range slider + manual start/end fields
+- ✨ Added backend video trim query support (`trim_enabled`, `trim_start`, `trim_end`) for single video jobs
+- ⚡ Added documented fast dev loop with compose override and hot-reload flow
+
+### Version 1.3.0
 - ✨ Reworked web frontend into a navbar-driven experience
 - ✨ Added centered landing screen with Bambam branding and version label
 - ✨ Replaced static roadmap text with live API and job status cards

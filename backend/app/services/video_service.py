@@ -26,13 +26,25 @@ class VideoConversionService:
         resize_enabled: bool = False,
         width: int | None = None,
         height: int | None = None,
+        trim_enabled: bool = False,
+        trim_start: float | None = None,
+        trim_end: float | None = None,
     ) -> list[str]:
         normalized_format = target_format.upper()
 
         if normalized_format not in VIDEO_FORMATS:
             raise ValueError(f"Unsupported target format: {target_format}")
 
-        cmd = get_ffmpeg_cmd() + ["-y", "-i", str(source_path)]
+        cmd = get_ffmpeg_cmd() + ["-y"]
+
+        if trim_enabled:
+            if trim_start is None or trim_end is None:
+                raise ValueError("trim_start and trim_end are required when trim is enabled")
+            if trim_end <= trim_start:
+                raise ValueError("trim_end must be greater than trim_start")
+            cmd += ["-ss", f"{trim_start}", "-to", f"{trim_end}"]
+
+        cmd += ["-i", str(source_path)]
 
         if resize_enabled:
             if not width or not height:
@@ -67,6 +79,9 @@ class VideoConversionService:
         resize_enabled: bool = False,
         width: int | None = None,
         height: int | None = None,
+        trim_enabled: bool = False,
+        trim_start: float | None = None,
+        trim_end: float | None = None,
     ) -> Path:
         cmd = self.build_command(
             source_path=source_path,
@@ -76,6 +91,9 @@ class VideoConversionService:
             resize_enabled=resize_enabled,
             width=width,
             height=height,
+            trim_enabled=trim_enabled,
+            trim_start=trim_start,
+            trim_end=trim_end,
         )
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)

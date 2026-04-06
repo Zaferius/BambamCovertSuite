@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import bambamLogo from "@/bambam_logo.png";
 
@@ -13,77 +13,38 @@ import { VideoConverter } from "./components/video-converter";
 
 type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
 
-type JobItem = {
-  id: string;
-  status: string;
-  updated_at: string;
-};
+const landingToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label: string }> = [
+  { key: "image", label: "Image Converter" },
+  { key: "audio", label: "Sound Converter" },
+  { key: "video", label: "Video Converter" },
+  { key: "document", label: "Document Converter" },
+  { key: "rename", label: "Batch Rename" },
+];
 
-const navItems: Array<{ key: ViewKey; label: string }> = [
-  { key: "landing", label: "Home" },
+const navToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label: string }> = [
   { key: "image", label: "Image" },
   { key: "audio", label: "Sound" },
   { key: "video", label: "Video" },
   { key: "document", label: "Document" },
   { key: "rename", label: "Batch Rename" },
+];
+
+const navItems: Array<{ key: ViewKey; label: string }> = [
+  { key: "landing", label: "Home" },
+  ...navToolItems,
   { key: "jobs", label: "Jobs" },
 ];
 
 
 function BambamLogo() {
   return (
-    <Image className="bambam-logo" src={bambamLogo} alt="Bambam logo" width={120} height={120} priority />
+    <Image className="bambam-logo" src={bambamLogo} alt="Bambam logo" width={220} height={220} priority />
   );
 }
 
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState<ViewKey>("landing");
-  const [apiStatus, setApiStatus] = useState("Unavailable");
-  const [jobs, setJobs] = useState<JobItem[]>([]);
-
-  const apiBaseUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
-    [],
-  );
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const healthResponse = await fetch(`${apiBaseUrl}/health`, { cache: "no-store" });
-        if (healthResponse.ok) {
-          const payload = (await healthResponse.json()) as { status?: string };
-          setApiStatus(payload.status ?? "ok");
-        } else {
-          setApiStatus("Unavailable");
-        }
-      } catch {
-        setApiStatus("Unavailable");
-      }
-
-      try {
-        const jobsResponse = await fetch(`${apiBaseUrl}/jobs`, { cache: "no-store" });
-        if (jobsResponse.ok) {
-          const payload = (await jobsResponse.json()) as JobItem[];
-          setJobs(payload);
-        }
-      } catch {
-        setJobs([]);
-      }
-    };
-
-    void load();
-    const interval = window.setInterval(() => {
-      void load();
-    }, 5000);
-
-    return () => window.clearInterval(interval);
-  }, [apiBaseUrl]);
-
-  const completedCount = jobs.filter((job) => job.status === "completed").length;
-  const failedCount = jobs.filter((job) => job.status === "failed").length;
-  const processingCount = jobs.filter((job) => job.status === "processing" || job.status === "queued").length;
-  const latestUpdate = jobs.length > 0 ? new Date(jobs[0].updated_at).toLocaleString() : "No jobs yet";
 
   const renderView = () => {
     if (activeView === "image") return <ImageConverter />;
@@ -94,55 +55,44 @@ export default function HomePage() {
     if (activeView === "jobs") return <JobsDashboard />;
 
     return (
-      <section className="hero-card landing-card">
+      <section className="landing-shell">
         <BambamLogo />
-        <h1>Bambam Converter Suite</h1>
-        <p className="hero-copy">Version 1.3.0</p>
+        <h1 className="landing-title">Bambam Converter Suite</h1>
+        <p className="landing-version">Version 1.3.1</p>
+        <p className="landing-product">Bambam Product 2025</p>
 
-        <div className="status-grid">
-          <div className="status-card">
-            <span className="status-label">API Health</span>
-            <strong>{apiStatus}</strong>
-          </div>
-          <div className="status-card">
-            <span className="status-label">Total Jobs</span>
-            <strong>{jobs.length}</strong>
-          </div>
-          <div className="status-card">
-            <span className="status-label">Processing</span>
-            <strong>{processingCount}</strong>
-          </div>
-          <div className="status-card">
-            <span className="status-label">Completed</span>
-            <strong>{completedCount}</strong>
-          </div>
-          <div className="status-card">
-            <span className="status-label">Failed</span>
-            <strong>{failedCount}</strong>
-          </div>
-          <div className="status-card">
-            <span className="status-label">Last Update</span>
-            <strong>{latestUpdate}</strong>
-          </div>
+        <div className="landing-actions">
+          {landingToolItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className="landing-tool-button"
+              onClick={() => setActiveView(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </section>
     );
   };
 
   return (
-    <main className="page-shell">
-      <header className="top-nav">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={`top-nav-item ${activeView === item.key ? "active" : ""}`}
-            onClick={() => setActiveView(item.key)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </header>
+    <main className={`page-shell ${activeView === "landing" ? "landing-page-shell" : ""}`}>
+      {activeView !== "landing" && (
+        <header className="top-nav">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`top-nav-item ${activeView === item.key ? "active" : ""}`}
+              onClick={() => setActiveView(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </header>
+      )}
 
       <section className="tools-section">{renderView()}</section>
     </main>

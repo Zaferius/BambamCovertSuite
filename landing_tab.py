@@ -6,7 +6,7 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 
 LOGO_PATH = "bambam_logo.png"
-VERSION = "1.2.9"
+VERSION = "1.3.1"
 
 class LandingTab:
     def __init__(self, app, parent):

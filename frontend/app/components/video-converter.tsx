@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, SyntheticEvent, useEffect, useMemo, useState } from "react";
 
 
 const videoFormats = ["MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"] as const;
@@ -36,6 +36,11 @@ export function VideoConverter() {
   const [width, setWidth] = useState<string>("1920");
   const [height, setHeight] = useState<string>("1080");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [trimEnabled, setTrimEnabled] = useState(false);
+  const [trimStart, setTrimStart] = useState<number>(0);
+  const [trimEnd, setTrimEnd] = useState<number>(0);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<VideoConversionResponse | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
@@ -48,12 +53,75 @@ export function VideoConverter() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     const file = files[0] ?? null;
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+
     setSelectedFile(file);
     setSelectedFiles(files);
+    setVideoDuration(0);
+    setTrimStart(0);
+    setTrimEnd(0);
+    setTrimEnabled(false);
+
+    if (files.length === 1 && file) {
+      setPreviewUrl(URL.createObjectURL(file));
+      setTrimEnabled(true);
+    }
+
     setErrorMessage(null);
     setResult(null);
     setJobStatus(null);
   };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const handleMetadataLoaded = (event: SyntheticEvent<HTMLVideoElement>) => {
+    const duration = Number(event.currentTarget.duration);
+    if (!Number.isFinite(duration) || duration <= 0) {
+      setVideoDuration(0);
+      setTrimStart(0);
+      setTrimEnd(0);
+      return;
+    }
+
+    const safeDuration = Number(duration.toFixed(2));
+    setVideoDuration(safeDuration);
+    setTrimStart(0);
+    setTrimEnd(safeDuration);
+  };
+
+  const handleTrimStartChange = (value: number) => {
+    const safeStart = Number.isFinite(value) ? value : 0;
+    const nextStart = Math.max(0, Math.min(safeStart, Math.max(0, trimEnd - 0.1)));
+    setTrimStart(Number(nextStart.toFixed(2)));
+  };
+
+  const handleTrimEndChange = (value: number) => {
+    const floor = trimStart + 0.1;
+    const safeEnd = Number.isFinite(value) ? value : floor;
+    const nextEnd = Math.max(floor, Math.min(safeEnd, videoDuration || safeEnd));
+    setTrimEnd(Number(nextEnd.toFixed(2)));
+  };
+
+  const handleTrimStartManual = (value: number) => {
+    handleTrimStartChange(value);
+  };
+
+  const handleTrimEndManual = (value: number) => {
+    handleTrimEndChange(value);
+  };
+
+  const trimStartPercent = videoDuration > 0 ? (trimStart / videoDuration) * 100 : 0;
+  const trimEndPercent = videoDuration > 0 ? (trimEnd / videoDuration) * 100 : 100;
 
   const pollJobStatus = async (jobId: string, isBatch: boolean) => {
     for (let attempt = 0; attempt < 300; attempt += 1) {
@@ -105,6 +173,11 @@ export function VideoConverter() {
       return;
     }
 
+    if (!isBatch && trimEnabled && videoDuration > 0 && trimEnd <= trimStart) {
+      setErrorMessage("Trim end time must be greater than trim start time.");
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage(null);
     setResult(null);
@@ -130,6 +203,12 @@ export function VideoConverter() {
       if (resizeEnabled) {
         query.set("width", width);
         query.set("height", height);
+      }
+
+      if (!isBatch && trimEnabled && videoDuration > 0) {
+        query.set("trim_enabled", "true");
+        query.set("trim_start", trimStart.toFixed(2));
+        query.set("trim_end", trimEnd.toFixed(2));
       }
 
       const endpoint = isBatch ? "/batch/video/jobs" : "/video/jobs";
@@ -159,7 +238,7 @@ export function VideoConverter() {
     <section className="tool-card feature-card">
       <div className="section-heading compact-heading">
         <h2>Video converter</h2>
-        <p>Upload a single video, choose target format, optional FPS, and optional resize settings.</p>
+        <p>Upload video, choose target format, and optionally resize, set FPS, or trim using a minimal slider screen.</p>
       </div>
 
       <form className="converter-form" onSubmit={handleSubmit}>
@@ -204,6 +283,99 @@ export function VideoConverter() {
             </label>
           </div>
         ) : null}
+
+        {selectedFiles.length === 1 && previewUrl ? (
+          <section className="trim-card">
+            <div className="trim-header">
+              <h3>Trim</h3>
+              <label className="checkbox-group">
+                <input type="checkbox" checked={trimEnabled} onChange={(event) => setTrimEnabled(event.target.checked)} />
+                <span>Enable trim</span>
+              </label>
+            </div>
+
+            <video className="trim-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+
+            <div className="trim-meta-row">
+              <span>Duration: {videoDuration > 0 ? `${videoDuration.toFixed(2)}s` : "loading..."}</span>
+              <span>
+                Range: {trimStart.toFixed(2)}s → {trimEnd.toFixed(2)}s
+              </span>
+            </div>
+
+            <div className="field-group">
+              <span>Trim range</span>
+              <div className="dual-range-wrapper">
+                <div className="dual-range-base" />
+                <div
+                  className="dual-range-selected"
+                  style={{
+                    left: `${trimStartPercent}%`,
+                    width: `${Math.max(0, trimEndPercent - trimStartPercent)}%`,
+                  }}
+                />
+
+                <input
+                  className="dual-range-input dual-range-input-start"
+                  type="range"
+                  min={0}
+                  max={videoDuration > 0 ? videoDuration : 0}
+                  step="0.1"
+                  value={trimStart}
+                  disabled={!trimEnabled || videoDuration <= 0}
+                  onChange={(event) => handleTrimStartChange(Number(event.target.value))}
+                />
+
+                <input
+                  className="dual-range-input dual-range-input-end"
+                  type="range"
+                  min={0}
+                  max={videoDuration > 0 ? videoDuration : 0}
+                  step="0.1"
+                  value={trimEnd}
+                  disabled={!trimEnabled || videoDuration <= 0}
+                  onChange={(event) => handleTrimEndChange(Number(event.target.value))}
+                />
+              </div>
+
+              <div className="trim-value-row">
+                <span>Start: {trimStart.toFixed(2)}s</span>
+                <span>End: {trimEnd.toFixed(2)}s</span>
+              </div>
+
+              <div className="trim-manual-row">
+                <label className="field-group trim-manual-field">
+                  <span>Start (manual)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={videoDuration > 0 ? videoDuration : undefined}
+                    step="0.1"
+                    value={trimStart}
+                    disabled={!trimEnabled || videoDuration <= 0}
+                    onChange={(event) => handleTrimStartManual(Number(event.target.value))}
+                  />
+                </label>
+
+                <label className="field-group trim-manual-field">
+                  <span>End (manual)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={videoDuration > 0 ? videoDuration : undefined}
+                    step="0.1"
+                    value={trimEnd}
+                    disabled={!trimEnabled || videoDuration <= 0}
+                    onChange={(event) => handleTrimEndManual(Number(event.target.value))}
+                  />
+                </label>
+              </div>
+            </div>
+
+          </section>
+        ) : null}
+
+        {selectedFiles.length > 1 ? <p className="selection-hint">Trim is available for single file mode.</p> : null}
 
         <button className="primary-button" type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Converting..." : "Convert video"}

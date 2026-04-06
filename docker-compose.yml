@@ -4,11 +4,8 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: bambam-api
-    env_file:
-      - path: backend/.env.example
-        required: false
     ports:
-      - "8000:8000"
+      - "${API_PUBLIC_PORT:-8000}:8000"
     volumes:
       - ./data/uploads:/data/uploads
       - ./data/outputs:/data/outputs
@@ -29,9 +26,6 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: bambam-worker
-    env_file:
-      - path: backend/.env.example
-        required: false
     command: python -m app.worker
     volumes:
       - ./data/uploads:/data/uploads
@@ -53,11 +47,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: bambam-frontend
-    env_file:
-      - path: frontend/.env.example
-        required: false
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PUBLIC_PORT:-3000}:3000"
     depends_on:
       - api
     restart: unless-stopped
@@ -71,8 +62,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: bambam-redis
-    ports:
-      - "6379:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

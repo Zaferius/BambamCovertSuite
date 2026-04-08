@@ -6,16 +6,16 @@ type Props = {
 };
 
 const statusLabels: Record<string, string> = {
-  queued: "Sıraya alındı...",
-  processing: "İşleniyor...",
-  completed: "Tamamlandı",
-  failed: "Hata oluştu",
+  queued: "Queued...",
+  processing: "Working...",
+  completed: "Completed!",
+  failed: "Error",
 };
 
 export function ConversionLoader({ isVisible, jobStatus }: Props) {
   if (!isVisible) return null;
 
-  const label = jobStatus ? (statusLabels[jobStatus] ?? jobStatus) : "Gönderiliyor...";
+  const label = jobStatus ? (statusLabels[jobStatus] ?? jobStatus) : "Uploading...";
   const isDone = jobStatus === "completed";
   const isFailed = jobStatus === "failed";
 

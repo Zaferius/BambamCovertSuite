@@ -12,16 +12,20 @@ This repository now includes an in-progress self-hosted web application stack al
 - Next.js frontend under `[frontend/](frontend)`
 - FastAPI backend under `[backend/](backend)`
 - Redis/RQ background job execution
-- Web-based image conversion
-- Web-based sound conversion
+- Web-based image conversion with quality slider (JPG/JPEG/WEBP only)
+- Web-based sound conversion with inline waveform trim editor
 - Web-based video conversion
-- Minimal single-file video trim UI with dual-handle range selection (start/end)
+- Single-file trim UI for both audio and video — dual-handle range selection with manual start/end inputs
+- Audio trim inputs displayed in `MM:SS.s` format for precision
 - Web-based document conversion through LibreOffice headless
 - Job dashboard/history view
 - Manual cleanup endpoint for finished and stale jobs
 - Navbar-based fast tool switching in `[frontend/app/page.tsx](frontend/app/page.tsx)`
 - Landing screen with centered logo, suite title, and live status cards
 - Batch and zip export support for image, audio, video, and document jobs
+- Conversion progress loader shown on all converter tabs during active jobs
+- All file pickers filtered to supported formats only (no stray file types)
+- Downloaded output files named `{originalname}_converted.{ext}`
 
 ### Current Web Limitations
 
@@ -33,9 +37,9 @@ This repository now includes an in-progress self-hosted web application stack al
 
 | Module | Single File | Batch | Zip Export | Notes |
 |---|---|---|---|---|
-| Image | Yes | Yes | Yes | Core web workflow implemented |
-| Sound | Yes | Yes | Yes | Bitrate control available |
-| Video | Yes | Yes | Yes | Basic format/FPS/resize + single-file trim workflow implemented |
+| Image | Yes | Yes | Yes | Quality slider active for JPG/JPEG/WEBP only |
+| Sound | Yes | Yes | Yes | Bitrate control + waveform trim (MM:SS.s inputs) |
+| Video | Yes | Yes | Yes | Format/FPS/resize + single-file trim workflow |
 | Document | Yes | Yes | Yes | LibreOffice headless only |
 | Batch Rename | No | No | No | Not yet ported to web |
 
@@ -43,7 +47,9 @@ This repository now includes an in-progress self-hosted web application stack al
 
 - Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
 - Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, and Jobs
-- Video screen includes minimal trim area (preview + dual-handle range slider + manual start/end inputs)
+- Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox
+- Video screen: trim area with video preview, dual-handle range slider, and manual start/end inputs
+- All converter screens show an animated spinner with live job status during conversion
 
 ## 🚀 Web App Deployment (Coolify / Docker VDS)
 
@@ -217,7 +223,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-1.3.2-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -416,7 +422,16 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.1 (Latest)
+### Version 1.3.2 (Latest)
+- ✨ Added waveform trim editor to Sound tab — canvas-based waveform visualization using Web Audio API, draggable cyan handles, dark region masks, and `Enable Trim` checkbox
+- ✨ Audio trim backend support added (`trim_enabled`, `trim_start`, `trim_end`) mirroring video trim implementation
+- ✨ Manual trim time inputs in Sound tab now use `MM:SS.s` format (e.g. `02:15.0`) instead of raw seconds
+- ✨ Conversion progress loader added to all converter tabs — animated spinner with live job status (`queued`, `processing`) that resolves on completion
+- ✨ Image converter Quality slider now only appears when target format supports it (JPG, JPEG, WEBP); hidden for PNG, TIFF, BMP, GIF
+- ✨ All file pickers now restrict selection to supported formats per tab (no stray file types in dialog)
+- ✨ Downloaded output files renamed to `{originalname}_converted.{ext}` across all converters
+
+### Version 1.3.1
 - ✨ Home landing updated to centered hero layout with larger Bambam logo and quick tool buttons
 - ✨ Navbar labels simplified (removed `Converter` suffix in top navigation)
 - ✨ Added minimal video trim UX in web app with dual-handle range slider + manual start/end fields

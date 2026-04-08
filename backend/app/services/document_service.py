@@ -6,6 +6,13 @@ from pathlib import Path
 
 DOCUMENT_TARGET_FORMATS = {"PDF", "DOCX", "ODT", "TXT"}
 
+LIBREOFFICE_FILTER_MAP = {
+    "DOCX": 'docx:"MS Word 2007 XML"',
+    "PDF": 'pdf:"writer_pdf_Export"',
+    "ODT": "odt",
+    "TXT": 'txt:"Text (encoded)"',
+}
+
 
 class DocumentConversionService:
     def convert(self, *, source_path: Path, output_dir: Path, target_format: str) -> Path:
@@ -20,20 +27,28 @@ class DocumentConversionService:
         safe_source = Path("/tmp") / safe_name
         shutil.copy2(source_path, safe_source)
 
+        convert_to_arg = LIBREOFFICE_FILTER_MAP.get(normalized_format, normalized_format.lower())
+
         try:
             cmd = [
                 "libreoffice",
                 "--headless",
                 "-env:UserInstallation=file:///tmp/libreoffice_profile",
                 "--convert-to",
-                normalized_format.lower(),
+                convert_to_arg,
                 "--outdir",
                 str(output_dir),
                 str(safe_source),
             ]
 
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            if result.returncode != 0 or "source file could not be loaded" in result.stderr or "source file could not be loaded" in result.stdout:
+            if (
+                result.returncode != 0
+                or "source file could not be loaded" in result.stderr
+                or "source file could not be loaded" in result.stdout
+                or "no export filter" in result.stderr
+                or "no export filter" in result.stdout
+            ):
                 raise RuntimeError(
                     f"LibreOffice conversion failed.\n"
                     f"RETURN CODE: {result.returncode}\n"

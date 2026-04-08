@@ -15,8 +15,9 @@ class DocumentConversionService:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         cmd = [
-            "soffice",
+            "libreoffice",
             "--headless",
+            "-env:UserInstallation=file:///tmp/libreoffice_profile",
             "--convert-to",
             normalized_format.lower(),
             "--outdir",
@@ -30,6 +31,7 @@ class DocumentConversionService:
 
         output_path = output_dir / f"{source_path.stem}.{normalized_format.lower()}"
         if not output_path.exists():
-            raise RuntimeError("Converted document file was not produced")
+            error_msg = f"Converted document file was not produced.\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            raise RuntimeError(error_msg)
 
         return output_path

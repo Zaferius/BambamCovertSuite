@@ -17,7 +17,17 @@ def get_ffmpeg_cmd() -> list[str]:
 
 
 class AudioConversionService:
-    def convert(self, *, source_path: Path, output_path: Path, target_format: str, bitrate: str) -> Path:
+    def convert(
+        self,
+        *,
+        source_path: Path,
+        output_path: Path,
+        target_format: str,
+        bitrate: str,
+        trim_enabled: bool = False,
+        trim_start: float | None = None,
+        trim_end: float | None = None,
+    ) -> Path:
         normalized_format = target_format.upper()
 
         if normalized_format not in AUDIO_FORMATS:
@@ -26,14 +36,23 @@ class AudioConversionService:
         if bitrate not in AUDIO_BITRATES:
             raise ValueError(f"Unsupported bitrate: {bitrate}")
 
-        cmd = get_ffmpeg_cmd() + [
-            "-y",
-            "-i",
-            str(source_path),
-            "-b:a",
-            bitrate,
-            str(output_path),
-        ]
+        if trim_enabled:
+            if trim_start is None or trim_end is None:
+                raise ValueError("trim_start and trim_end are required when trim is enabled")
+            if trim_end <= trim_start:
+                raise ValueError("trim_end must be greater than trim_start")
+
+        cmd = get_ffmpeg_cmd() + ["-y"]
+
+        if trim_enabled and trim_start is not None:
+            cmd += ["-ss", f"{trim_start}"]
+
+        cmd += ["-i", str(source_path)]
+
+        if trim_enabled and trim_end is not None and trim_start is not None:
+            cmd += ["-to", f"{trim_end - trim_start}"]
+
+        cmd += ["-b:a", bitrate, str(output_path)]
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if result.returncode != 0:

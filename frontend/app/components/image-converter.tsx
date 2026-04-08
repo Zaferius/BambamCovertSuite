@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ConversionLoader } from "./conversion-loader";
 
 
 const imageFormats = ["PNG", "JPG", "JPEG", "WEBP", "TIFF", "BMP", "GIF"] as const;
@@ -27,6 +28,8 @@ export function ImageConverter() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [targetFormat, setTargetFormat] = useState<string>("PNG");
+  const qualityFormats = new Set(["JPG", "JPEG", "WEBP"]);
+  const qualitySupported = qualityFormats.has(targetFormat);
   const [quality, setQuality] = useState<number>(90);
   const [isBatchResult, setIsBatchResult] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,22 +170,26 @@ export function ImageConverter() {
             </select>
           </label>
 
-          <label className="field-group">
-            <span>Quality: {quality}</span>
-            <input
-              type="range"
-              min="1"
-              max="100"
-              value={quality}
-              onChange={(event) => setQuality(Number(event.target.value))}
-            />
-          </label>
+          {qualitySupported ? (
+            <label className="field-group">
+              <span>Quality: {quality}</span>
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={quality}
+                onChange={(event) => setQuality(Number(event.target.value))}
+              />
+            </label>
+          ) : null}
         </div>
 
         <button className="primary-button" type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Converting..." : "Convert image"}
         </button>
       </form>
+
+      <ConversionLoader isVisible={isSubmitting} jobStatus={jobStatus} />
 
       {selectedFiles.length > 1 ? (
         <p className="selection-hint">

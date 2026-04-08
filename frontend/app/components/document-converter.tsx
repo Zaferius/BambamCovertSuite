@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ConversionLoader } from "./conversion-loader";
 
 
 const documentFormats = ["PDF", "DOCX", "ODT", "TXT"] as const;
@@ -163,6 +164,8 @@ export function DocumentConverter() {
           {isSubmitting ? "Converting..." : "Convert document"}
         </button>
       </form>
+
+      <ConversionLoader isVisible={isSubmitting} jobStatus={jobStatus} />
 
       {selectedFiles.length > 1 ? (
         <p className="selection-hint">

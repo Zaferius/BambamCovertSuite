@@ -6,7 +6,14 @@ from app.services.jobs import JobService
 from app.services.storage import StorageService
 
 
-def run_audio_conversion(job_id: str, target_format: str, bitrate: str) -> dict[str, str]:
+def run_audio_conversion(
+    job_id: str,
+    target_format: str,
+    bitrate: str,
+    trim_enabled: bool = False,
+    trim_start: float | None = None,
+    trim_end: float | None = None,
+) -> dict[str, str]:
     db = SessionLocal()
 
     try:
@@ -30,6 +37,9 @@ def run_audio_conversion(job_id: str, target_format: str, bitrate: str) -> dict[
             output_path=output_path,
             target_format=normalized_format,
             bitrate=bitrate,
+            trim_enabled=trim_enabled,
+            trim_start=trim_start,
+            trim_end=trim_end,
         )
         job_service.mark_completed(job, str(output_path))
 

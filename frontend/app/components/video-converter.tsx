@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, SyntheticEvent, useEffect, useMemo, useState } from "react";
+import { ConversionLoader } from "./conversion-loader";
 
 
 const videoFormats = ["MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"] as const;
@@ -381,6 +382,8 @@ export function VideoConverter() {
           {isSubmitting ? "Converting..." : "Convert video"}
         </button>
       </form>
+
+      <ConversionLoader isVisible={isSubmitting} jobStatus={jobStatus} />
 
       {selectedFiles.length > 1 ? (
         <p className="selection-hint">

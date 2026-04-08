@@ -23,6 +23,9 @@ async def create_audio_job(
     file: UploadFile = File(...),
     target_format: str = Query(default="MP3"),
     bitrate: str = Query(default="192k"),
+    trim_enabled: bool = Query(default=False),
+    trim_start: float | None = Query(default=None, ge=0),
+    trim_end: float | None = Query(default=None, ge=0),
     db: Session = Depends(get_db),
 ) -> AudioJobCreateResponse:
     normalized_format = target_format.upper()
@@ -30,6 +33,12 @@ async def create_audio_job(
         raise HTTPException(status_code=400, detail="Unsupported audio target format")
     if bitrate not in AUDIO_BITRATES:
         raise HTTPException(status_code=400, detail="Unsupported bitrate")
+
+    if trim_enabled:
+        if trim_start is None or trim_end is None:
+            raise HTTPException(status_code=400, detail="trim_start and trim_end are required when trim is enabled")
+        if trim_end <= trim_start:
+            raise HTTPException(status_code=400, detail="trim_end must be greater than trim_start")
 
     storage_service = StorageService()
     job_service = JobService(db)
@@ -46,7 +55,7 @@ async def create_audio_job(
         input_path=str(input_path),
     )
 
-    enqueue_job(run_audio_conversion, job.id, normalized_format, bitrate, retry_max=1)
+    enqueue_job(run_audio_conversion, job.id, normalized_format, bitrate, trim_enabled, trim_start, trim_end, retry_max=1)
 
     return AudioJobCreateResponse(
         job_id=job.id,

@@ -42,6 +42,7 @@ async def create_document_job(
         original_filename=file.filename or "upload.bin",
         stored_filename=input_path.name,
         input_path=str(input_path),
+        user_id=current_user.id,
     )
 
     enqueue_job(run_document_conversion, job.id, normalized_format, job_timeout=storage_service.settings.queue_document_timeout, retry_max=1)

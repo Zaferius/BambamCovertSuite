@@ -55,6 +55,7 @@ async def create_audio_job(
         original_filename=file.filename or "upload.bin",
         stored_filename=input_path.name,
         input_path=str(input_path),
+        user_id=current_user.id,
     )
 
     enqueue_job(run_audio_conversion, job.id, normalized_format, bitrate, trim_enabled, trim_start, trim_end, retry_max=1)

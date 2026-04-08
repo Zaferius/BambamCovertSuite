@@ -37,6 +37,31 @@ export function JobsDashboard() {
     setJobs(payload);
   };
 
+  const getDownloadUrl = (job: JobItem) => {
+    if (job.status !== "completed") {
+      return null;
+    }
+
+    if (job.job_type.startsWith("batch_")) {
+      return `${apiBaseUrl}/batch/jobs/${job.id}/download`;
+    }
+
+    if (job.job_type === "image") {
+      return `${apiBaseUrl}/image/jobs/${job.id}/download`;
+    }
+    if (job.job_type === "audio") {
+      return `${apiBaseUrl}/audio/jobs/${job.id}/download`;
+    }
+    if (job.job_type === "video") {
+      return `${apiBaseUrl}/video/jobs/${job.id}/download`;
+    }
+    if (job.job_type === "document") {
+      return `${apiBaseUrl}/document/jobs/${job.id}/download`;
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     void loadJobs();
 
@@ -121,12 +146,13 @@ export function JobsDashboard() {
               <th>Status</th>
               <th>Output</th>
               <th>Updated</th>
+              <th>Download</th>
             </tr>
           </thead>
           <tbody>
             {jobs.length === 0 ? (
               <tr>
-                <td colSpan={5}>No jobs yet.</td>
+                <td colSpan={6}>No jobs yet.</td>
               </tr>
             ) : (
               jobs.map((job) => (
@@ -139,6 +165,24 @@ export function JobsDashboard() {
                   <td>{job.status}</td>
                   <td>{job.output_filename ?? job.error_message ?? "—"}</td>
                   <td>{new Date(job.updated_at).toLocaleString()}</td>
+                  <td>
+                    {getDownloadUrl(job) ? (
+                      <button
+                        className="primary-button"
+                        style={{ padding: "6px 10px", fontSize: "0.78rem" }}
+                        type="button"
+                        onClick={() => {
+                          const url = getDownloadUrl(job);
+                          if (!url) return;
+                          window.open(url, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        Download
+                      </button>
+                    ) : (
+                      <span style={{ color: "var(--muted)" }}>—</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}

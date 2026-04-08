@@ -59,6 +59,7 @@ async def create_video_job(
         original_filename=file.filename or "upload.bin",
         stored_filename=input_path.name,
         input_path=str(input_path),
+        user_id=current_user.id,
     )
 
     enqueue_job(

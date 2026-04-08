@@ -19,8 +19,13 @@ This repository now includes an in-progress self-hosted web application stack al
 - Audio trim inputs displayed in `MM:SS.s` format for precision
 - Web-based document conversion through LibreOffice headless
 - Job dashboard/history view
+- Job dashboard now shows newly queued jobs immediately after upload starts
+- Job dashboard table includes per-job download action on the right
 - Manual cleanup endpoint for finished and stale jobs
+- Admin panel file manager for `outputs`/`uploads` (list, view, delete, owner tracking)
+- Admin storage tools: one-click `Delete All` for disk cleanup and default-collapsed `Stored Files` section
 - Navbar-based fast tool switching in `[frontend/app/page.tsx](frontend/app/page.tsx)`
+- Tab state persistence when switching tabs (conversion forms do not reset)
 - Landing screen with centered logo, suite title, and live status cards
 - Batch and zip export support for image, audio, video, and document jobs
 - Conversion progress loader shown on all converter tabs during active jobs
@@ -50,7 +55,8 @@ This repository now includes an in-progress self-hosted web application stack al
 - Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
 - Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, and Jobs
 - Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox
-- Video screen: trim area with video preview, dual-handle range slider, and manual start/end inputs
+- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position resize overlay handles
+- Admin panel: active users + stored files manager with authenticated view/delete actions
 - All converter screens show an animated spinner with live job status during conversion
 
 ## 🚀 Web App Deployment (Coolify / Docker VDS)
@@ -196,6 +202,11 @@ These help control upload limits and long-running worker behavior for self-hoste
 - `GET /jobs`
 - `GET /jobs/{job_id}`
 - `POST /admin/cleanup`
+- `POST /auth/logout`
+- `GET /admin/files`
+- `GET /admin/files/view`
+- `DELETE /admin/files`
+- `DELETE /admin/files/all`
 
 The desktop app remains in the repository, but ongoing migration work is focused on the self-hosted web app.
 
@@ -441,8 +452,16 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📝 Changelog
 
 ### Version 1.3.5 (Latest)
+- ✨ Jobs dashboard now shows newly queued jobs immediately during upload flow
+- ✨ Jobs table now includes a right-side per-job `Download` action
+- ✨ Admin storage section now supports one-click `Delete All` for `uploads` + `outputs`
+- ✨ Admin `Stored Files` area is now collapsible and closed by default to save panel space
 - ✨ Video resize editor upgraded with draggable edge/corner handles directly on preview
 - ✨ Admin online users panel now refreshes immediately on user logout
+- ✨ Admin file manager added (list/view/delete on `outputs` and `uploads` + owner username display)
+- 🐛 Fixed protected file view in admin panel by switching to authenticated fetch-based preview
+- 🐛 Fixed tab-switch reset issue by keeping converter components mounted across navigation
+- 🐛 Improved video resize interaction: video pauses, controls hide, and all handles drag in correct direction
 
 ### Version 1.3.4
 - ✨ Implemented secure JWT-based authentication system for the web app

@@ -16,10 +16,12 @@ type StoredFile = {
   relative_path: string;
   size: number;
   modified_at: string;
+  owner_username?: string;
 };
 
 export function AdminPanel() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isStoredFilesOpen, setIsStoredFilesOpen] = useState(false);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [source, setSource] = useState<"outputs" | "uploads">("outputs");
   const [files, setFiles] = useState<StoredFile[]>([]);
@@ -64,9 +66,9 @@ export function AdminPanel() {
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !isStoredFilesOpen) return;
     void fetchFiles(source);
-  }, [isOpen, source]);
+  }, [isOpen, source, isStoredFilesOpen]);
 
   const handleDelete = async (file: StoredFile) => {
     const ok = window.confirm(`Delete ${file.name}?`);
@@ -75,6 +77,33 @@ export function AdminPanel() {
     const res = await authFetch(url, { method: "DELETE" });
     if (res.ok) {
       setFiles((prev) => prev.filter((f) => !(f.source === file.source && f.relative_path === file.relative_path)));
+    }
+  };
+
+  const handleView = async (file: StoredFile) => {
+    const url = `${apiBaseUrl}/admin/files/view?source=${file.source}&path=${encodeURIComponent(file.relative_path)}`;
+    const res = await authFetch(url);
+    if (!res.ok) {
+      return;
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  };
+
+  const handleDeleteAllFiles = async () => {
+    const ok = window.confirm("Delete ALL stored files from uploads and outputs?");
+    if (!ok) return;
+
+    const res = await authFetch(`${apiBaseUrl}/admin/files/all`, { method: "DELETE" });
+    if (!res.ok) {
+      return;
+    }
+
+    setFiles([]);
+    if (isStoredFilesOpen) {
+      void fetchFiles(source);
     }
   };
 
@@ -124,60 +153,84 @@ export function AdminPanel() {
             </ul>
           )}
 
-          <div className="admin-panel-header" style={{ borderTop: "1px solid var(--border)" }}>
-            <h4>Stored Files</h4>
+          <div className="admin-panel-header" style={{ borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <h4>Storage</h4>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                className="admin-panel-toggle"
+                style={{ padding: "4px 10px", fontSize: "0.76rem", borderColor: "#f87171", color: "#fca5a5" }}
+                onClick={() => void handleDeleteAllFiles()}
+              >
+                Delete All
+              </button>
+              <button
+                className="admin-panel-toggle"
+                style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+                onClick={() => setIsStoredFilesOpen((prev) => !prev)}
+              >
+                {isStoredFilesOpen ? "Hide Stored Files" : "Show Stored Files"}
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, padding: "10px 12px" }}>
-            <button
-              className="admin-panel-toggle"
-              style={{ padding: "4px 10px", fontSize: "0.8rem", background: source === "outputs" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)" }}
-              onClick={() => setSource("outputs")}
-            >
-              Outputs
-            </button>
-            <button
-              className="admin-panel-toggle"
-              style={{ padding: "4px 10px", fontSize: "0.8rem", background: source === "uploads" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)" }}
-              onClick={() => setSource("uploads")}
-            >
-              Uploads
-            </button>
-          </div>
+          {isStoredFilesOpen && (
+            <>
+              <div style={{ display: "flex", gap: 8, padding: "10px 12px" }}>
+                <button
+                  className="admin-panel-toggle"
+                  style={{ padding: "4px 10px", fontSize: "0.8rem", background: source === "outputs" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)" }}
+                  onClick={() => setSource("outputs")}
+                >
+                  Outputs
+                </button>
+                <button
+                  className="admin-panel-toggle"
+                  style={{ padding: "4px 10px", fontSize: "0.8rem", background: source === "uploads" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)" }}
+                  onClick={() => setSource("uploads")}
+                >
+                  Uploads
+                </button>
+              </div>
 
-          {isLoadingFiles ? (
-            <p className="admin-empty">Loading files...</p>
-          ) : files.length === 0 ? (
-            <p className="admin-empty">No files found</p>
-          ) : (
-            <ul className="admin-user-list">
-              {files.map((f) => {
-                const viewUrl = `${apiBaseUrl}/admin/files/view?source=${f.source}&path=${encodeURIComponent(f.relative_path)}`;
-                return (
-                  <li key={`${f.source}:${f.relative_path}`} className="admin-user-item">
-                    <div className="admin-user-info" style={{ alignItems: "flex-start" }}>
-                      <span className="admin-user-name" style={{ fontSize: "0.84rem", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }} title={f.relative_path}>
-                        {f.name}
-                      </span>
-                      <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>{formatSize(f.size)}</span>
-                    </div>
-                    <span className="admin-user-action">{new Date(f.modified_at).toLocaleString()}</span>
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      <a className="admin-panel-toggle" style={{ padding: "4px 10px", fontSize: "0.76rem" }} href={viewUrl} target="_blank" rel="noreferrer">
-                        View
-                      </a>
-                      <button
-                        className="admin-panel-toggle"
-                        style={{ padding: "4px 10px", fontSize: "0.76rem", borderColor: "#f87171", color: "#fca5a5" }}
-                        onClick={() => void handleDelete(f)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+              {isLoadingFiles ? (
+                <p className="admin-empty">Loading files...</p>
+              ) : files.length === 0 ? (
+                <p className="admin-empty">No files found</p>
+              ) : (
+                <ul className="admin-user-list">
+                  {files.map((f) => {
+                    return (
+                      <li key={`${f.source}:${f.relative_path}`} className="admin-user-item">
+                        <div className="admin-user-info" style={{ alignItems: "flex-start" }}>
+                          <span className="admin-user-name" style={{ fontSize: "0.84rem", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }} title={f.relative_path}>
+                            {f.name}
+                          </span>
+                          <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>{formatSize(f.size)}</span>
+                        </div>
+                        <span className="admin-user-action">{new Date(f.modified_at).toLocaleString()}</span>
+                        <span className="admin-user-action">Owner: {f.owner_username ?? "Unknown"}</span>
+                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                          <button
+                            className="admin-panel-toggle"
+                            style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+                            onClick={() => void handleView(f)}
+                          >
+                            View
+                          </button>
+                          <button
+                            className="admin-panel-toggle"
+                            style={{ padding: "4px 10px", fontSize: "0.76rem", borderColor: "#f87171", color: "#fca5a5" }}
+                            onClick={() => void handleDelete(f)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
           )}
         </div>
       )}

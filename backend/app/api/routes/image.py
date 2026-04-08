@@ -44,6 +44,7 @@ async def create_image_job(
         original_filename=file.filename or "upload.bin",
         stored_filename=input_path.name,
         input_path=str(input_path),
+        user_id=current_user.id,
     )
 
     enqueue_job(run_image_conversion, job.id, normalized_format, quality, retry_max=1)

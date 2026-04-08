@@ -75,7 +75,16 @@ export function VideoConverter() {
   const [sourceWidth, setSourceWidth] = useState<number>(1920);
   const [sourceHeight, setSourceHeight] = useState<number>(1080);
   const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
-  const resizeDragStartRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [overlayRect, setOverlayRect] = useState({ left: 0, top: 0, w: 1, h: 1 });
+  const resizeDragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    stageRect: DOMRect;
+    snapLeft: number;
+    snapTop: number;
+    snapW: number;
+    snapH: number;
+  } | null>(null);
 
   const { setAction } = useAction();
 
@@ -138,11 +147,16 @@ export function VideoConverter() {
     setSourceWidth(naturalWidth);
     setSourceHeight(naturalHeight);
 
-    if (!resizeEnabled) {
-      setWidth(String(naturalWidth));
-      setHeight(String(naturalHeight));
-    }
+    setOverlayRect({ left: 0, top: 0, w: 1, h: 1 });
+    setWidth(String(naturalWidth));
+    setHeight(String(naturalHeight));
   };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (resizeEnabled) video.pause();
+  }, [resizeEnabled]);
 
   useEffect(() => {
     if (!activeResizeHandle) return;
@@ -151,21 +165,34 @@ export function VideoConverter() {
       const start = resizeDragStartRef.current;
       if (!start) return;
 
-      const dx = e.clientX - start.x;
-      const dy = e.clientY - start.y;
-      let nextWidth = start.width;
-      let nextHeight = start.height;
+      const dxF = (e.clientX - start.startX) / start.stageRect.width;
+      const dyF = (e.clientY - start.startY) / start.stageRect.height;
 
-      if (activeResizeHandle.includes("e")) nextWidth = start.width + dx;
-      if (activeResizeHandle.includes("w")) nextWidth = start.width - dx;
-      if (activeResizeHandle.includes("s")) nextHeight = start.height + dy;
-      if (activeResizeHandle.includes("n")) nextHeight = start.height - dy;
+      let left = start.snapLeft;
+      let top = start.snapTop;
+      let w = start.snapW;
+      let h = start.snapH;
 
-      nextWidth = Math.max(64, Math.min(sourceWidth, Math.round(nextWidth)));
-      nextHeight = Math.max(64, Math.min(sourceHeight, Math.round(nextHeight)));
+      if (activeResizeHandle.includes("e")) {
+        w = Math.max(0.05, Math.min(1 - left, w + dxF));
+      }
+      if (activeResizeHandle.includes("w")) {
+        const newLeft = Math.max(0, Math.min(left + w - 0.05, left + dxF));
+        w = left + w - newLeft;
+        left = newLeft;
+      }
+      if (activeResizeHandle.includes("s")) {
+        h = Math.max(0.05, Math.min(1 - top, h + dyF));
+      }
+      if (activeResizeHandle.includes("n")) {
+        const newTop = Math.max(0, Math.min(top + h - 0.05, top + dyF));
+        h = top + h - newTop;
+        top = newTop;
+      }
 
-      setWidth(String(nextWidth));
-      setHeight(String(nextHeight));
+      setOverlayRect({ left, top, w, h });
+      setWidth(String(Math.max(2, Math.round(w * sourceWidth))));
+      setHeight(String(Math.max(2, Math.round(h * sourceHeight))));
     };
 
     const onMouseUp = () => {
@@ -179,20 +206,24 @@ export function VideoConverter() {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
-  }, [activeResizeHandle, sourceHeight, sourceWidth]);
+  }, [activeResizeHandle, sourceWidth, sourceHeight]);
 
   const startResizeDrag = (handle: ResizeHandle) => (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    const currentWidth = Math.max(64, Number(width) || 64);
-    const currentHeight = Math.max(64, Number(height) || 64);
-    resizeDragStartRef.current = { x: e.clientX, y: e.clientY, width: currentWidth, height: currentHeight };
+    const stage = resizeStageRef.current;
+    if (!stage) return;
+    resizeDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      stageRect: stage.getBoundingClientRect(),
+      snapLeft: overlayRect.left,
+      snapTop: overlayRect.top,
+      snapW: overlayRect.w,
+      snapH: overlayRect.h,
+    };
     setActiveResizeHandle(handle);
   };
 
-  const outputWidth = Math.max(64, Number(width) || 64);
-  const outputHeight = Math.max(64, Number(height) || 64);
-  const widthRatio = Math.max(0.05, Math.min(1, outputWidth / sourceWidth));
-  const heightRatio = Math.max(0.05, Math.min(1, outputHeight / sourceHeight));
 
   const xToTime = useCallback(
     (clientX: number): number => {
@@ -427,9 +458,10 @@ export function VideoConverter() {
             </div>
 
             <div ref={resizeStageRef} className="video-resize-stage">
-              <video ref={videoRef} className="trim-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+              <video ref={videoRef} className="trim-preview" src={previewUrl} controls={!resizeEnabled} preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
               {resizeEnabled ? (
-                <div className="video-resize-overlay" style={{ width: `${widthRatio * 100}%`, height: `${heightRatio * 100}%` }}>
+                <div className="video-resize-overlay" style={{ left: `${overlayRect.left * 100}%`, top: `${overlayRect.top * 100}%`, width: `${overlayRect.w * 100}%`, height: `${overlayRect.h * 100}%` }}>
+                  <span className="resize-overlay-label">{width} × {height}px</span>
                   {(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeHandle[]).map((handle) => (
                     <button
                       key={handle}

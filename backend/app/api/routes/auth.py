@@ -33,6 +33,13 @@ def update_user_status(
     return {"status": "ok"}
 
 
+@router.post("/logout")
+def logout_user(current_user=Depends(get_current_user)) -> dict:
+    r = get_queue().connection
+    r.hdel("online_users", current_user.id)
+    return {"status": "ok"}
+
+
 @router.get("/online-users", dependencies=[Depends(get_current_active_admin)])
 def get_online_users() -> list[dict]:
     r = get_queue().connection

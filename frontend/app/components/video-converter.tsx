@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, SyntheticEvent, useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { ChangeEvent, FormEvent, MouseEvent as ReactMouseEvent, SyntheticEvent, useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
@@ -45,6 +45,8 @@ type VideoJobStatusResponse = {
   error_message?: string | null;
 };
 
+type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+
 
 export function VideoConverter() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -69,6 +71,11 @@ export function VideoConverter() {
   const [isDragging, setIsDragging] = useState<"start" | "end" | null>(null);
   const waveformAreaRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const resizeStageRef = useRef<HTMLDivElement>(null);
+  const [sourceWidth, setSourceWidth] = useState<number>(1920);
+  const [sourceHeight, setSourceHeight] = useState<number>(1080);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
+  const resizeDragStartRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const { setAction } = useAction();
 
@@ -112,7 +119,8 @@ export function VideoConverter() {
   }, [previewUrl]);
 
   const handleMetadataLoaded = (event: SyntheticEvent<HTMLVideoElement>) => {
-    const duration = Number(event.currentTarget.duration);
+    const media = event.currentTarget;
+    const duration = Number(media.duration);
     if (!Number.isFinite(duration) || duration <= 0) {
       setVideoDuration(0);
       setTrimStart(0);
@@ -124,7 +132,67 @@ export function VideoConverter() {
     setVideoDuration(safeDuration);
     setTrimStart(0);
     setTrimEnd(safeDuration);
+
+    const naturalWidth = Math.max(1, Number(media.videoWidth) || 1);
+    const naturalHeight = Math.max(1, Number(media.videoHeight) || 1);
+    setSourceWidth(naturalWidth);
+    setSourceHeight(naturalHeight);
+
+    if (!resizeEnabled) {
+      setWidth(String(naturalWidth));
+      setHeight(String(naturalHeight));
+    }
   };
+
+  useEffect(() => {
+    if (!activeResizeHandle) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      const start = resizeDragStartRef.current;
+      if (!start) return;
+
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      let nextWidth = start.width;
+      let nextHeight = start.height;
+
+      if (activeResizeHandle.includes("e")) nextWidth = start.width + dx;
+      if (activeResizeHandle.includes("w")) nextWidth = start.width - dx;
+      if (activeResizeHandle.includes("s")) nextHeight = start.height + dy;
+      if (activeResizeHandle.includes("n")) nextHeight = start.height - dy;
+
+      nextWidth = Math.max(64, Math.min(sourceWidth, Math.round(nextWidth)));
+      nextHeight = Math.max(64, Math.min(sourceHeight, Math.round(nextHeight)));
+
+      setWidth(String(nextWidth));
+      setHeight(String(nextHeight));
+    };
+
+    const onMouseUp = () => {
+      setActiveResizeHandle(null);
+      resizeDragStartRef.current = null;
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [activeResizeHandle, sourceHeight, sourceWidth]);
+
+  const startResizeDrag = (handle: ResizeHandle) => (e: ReactMouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const currentWidth = Math.max(64, Number(width) || 64);
+    const currentHeight = Math.max(64, Number(height) || 64);
+    resizeDragStartRef.current = { x: e.clientX, y: e.clientY, width: currentWidth, height: currentHeight };
+    setActiveResizeHandle(handle);
+  };
+
+  const outputWidth = Math.max(64, Number(width) || 64);
+  const outputHeight = Math.max(64, Number(height) || 64);
+  const widthRatio = Math.max(0.05, Math.min(1, outputWidth / sourceWidth));
+  const heightRatio = Math.max(0.05, Math.min(1, outputHeight / sourceHeight));
 
   const xToTime = useCallback(
     (clientX: number): number => {
@@ -358,7 +426,22 @@ export function VideoConverter() {
               </label>
             </div>
 
-            <video ref={videoRef} className="trim-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+            <div ref={resizeStageRef} className="video-resize-stage">
+              <video ref={videoRef} className="trim-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+              {resizeEnabled ? (
+                <div className="video-resize-overlay" style={{ width: `${widthRatio * 100}%`, height: `${heightRatio * 100}%` }}>
+                  {(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeHandle[]).map((handle) => (
+                    <button
+                      key={handle}
+                      type="button"
+                      className={`resize-handle resize-handle-${handle}`}
+                      onMouseDown={startResizeDrag(handle)}
+                      aria-label={`Resize ${handle}`}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <div
               ref={waveformAreaRef}

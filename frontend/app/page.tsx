@@ -127,44 +127,11 @@ export default function HomePage() {
   if (isLoading) return null;
   if (!user) return <AuthScreen />;
 
-  const renderView = () => {
-    if (activeView === "image") return <ImageConverter />;
-    if (activeView === "audio") return <AudioConverter />;
-    if (activeView === "video") return <VideoConverter />;
-    if (activeView === "document") return <DocumentConverter />;
-    if (activeView === "rename") return <BatchRenameConverter />;
-    if (activeView === "jobs") return <JobsDashboard />;
-
-    return (
-      <section className="landing-shell">
-        <BambamLogo />
-        <h1 className="landing-title">Bambam Converter Suite</h1>
-        <p className="landing-version">Version 1.3.1</p>
-        <p className="landing-product">Bambam Product 2025</p>
-
-        <div className="landing-actions">
-          {landingToolItems.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className="landing-tool-button"
-              onClick={() => setActiveView(item.key)}
-              style={{ position: "relative" }}
-            >
-              {hasFinishedJobs[item.key] && (
-                <span className="notification-badge">!</span>
-              )}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </section>
-    );
-  };
+  const isLanding = activeView === "landing";
 
   return (
-    <main className={`page-shell ${activeView === "landing" ? "landing-page-shell" : ""}`}>
-      {activeView !== "landing" && (
+    <main className={`page-shell ${isLanding ? "landing-page-shell" : ""}`}>
+      {!isLanding && (
         <header className="top-nav">
           <div className="top-nav-tabs">
             {navItems.map((item) => (
@@ -192,7 +159,48 @@ export default function HomePage() {
         </header>
       )}
 
-      <section className="tools-section">{renderView()}</section>
+      <section className="tools-section">
+        <section className="landing-shell" style={{ display: isLanding ? "block" : "none" }}>
+          <BambamLogo />
+          <h1 className="landing-title">Bambam Converter Suite</h1>
+          <p className="landing-version">Version 1.3.5</p>
+          <p className="landing-product">Bambam Product 2025</p>
+
+          <div className="landing-actions">
+            {landingToolItems.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className="landing-tool-button"
+                onClick={() => setActiveView(item.key)}
+                style={{ position: "relative" }}
+              >
+                {hasFinishedJobs[item.key] && <span className="notification-badge">!</span>}
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <div style={{ display: activeView === "image" ? "block" : "none" }}>
+          <ImageConverter />
+        </div>
+        <div style={{ display: activeView === "audio" ? "block" : "none" }}>
+          <AudioConverter />
+        </div>
+        <div style={{ display: activeView === "video" ? "block" : "none" }}>
+          <VideoConverter />
+        </div>
+        <div style={{ display: activeView === "document" ? "block" : "none" }}>
+          <DocumentConverter />
+        </div>
+        <div style={{ display: activeView === "rename" ? "block" : "none" }}>
+          <BatchRenameConverter />
+        </div>
+        <div style={{ display: activeView === "jobs" ? "block" : "none" }}>
+          <JobsDashboard />
+        </div>
+      </section>
     </main>
   );
 }

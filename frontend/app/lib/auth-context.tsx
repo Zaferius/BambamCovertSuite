@@ -46,6 +46,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    if (token) {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+      fetch(`${apiBaseUrl}/auth/logout`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }).catch(() => undefined);
+    }
+
     localStorage.removeItem("bambam_token");
     localStorage.removeItem("bambam_user");
     setToken(null);

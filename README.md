@@ -241,7 +241,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.3.3-blue)
+![Version](https://img.shields.io/badge/version-1.3.5-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -440,7 +440,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.4 (Latest)
+### Version 1.3.5 (Latest)
+- ✨ Video resize editor upgraded with draggable edge/corner handles directly on preview
+- ✨ Admin online users panel now refreshes immediately on user logout
+
+### Version 1.3.4
 - ✨ Implemented secure JWT-based authentication system for the web app
 - ✨ First registered user is automatically granted admin privileges on fresh database
 - ✨ Frontend registration disabled for public; admin-only user creation supported

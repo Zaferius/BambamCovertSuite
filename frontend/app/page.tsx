@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import bambamLogo from "@/bambam_logo.png";
+import { authFetch } from "./lib/auth-fetch";
 
 import { AudioConverter } from "./components/audio-converter";
 import { BatchRenameConverter } from "./components/batch-rename-converter";
@@ -12,7 +13,9 @@ import { JobsDashboard } from "./components/jobs-dashboard";
 import { VideoConverter } from "./components/video-converter";
 
 import { useAuth } from "./lib/auth-context";
+import { useAction } from "./lib/action-context";
 import { AuthScreen } from "./components/auth-screen";
+import { AdminPanel } from "./components/admin-panel";
 
 type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
 
@@ -48,6 +51,78 @@ function BambamLogo() {
 export default function HomePage() {
   const [activeView, setActiveView] = useState<ViewKey>("landing");
   const { user, logout, isLoading } = useAuth();
+  
+  // Track unseen finished jobs per tool
+  const [hasFinishedJobs, setHasFinishedJobs] = useState<Record<string, boolean>>({});
+  const [lastSeenTime, setLastSeenTime] = useState<Record<string, number>>({});
+
+  const apiBaseUrl = useMemo(
+    () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
+    [],
+  );
+
+  const { action } = useAction();
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Ping server with our current action
+    const pingServer = async () => {
+      try {
+        await authFetch(`${apiBaseUrl}/auth/ping?action=${encodeURIComponent(action)}`, {
+          method: "POST"
+        });
+      } catch (e) {}
+    };
+
+    pingServer();
+    const pingInterval = setInterval(pingServer, 10000); // 10s ping
+
+    // Quick polling to check for newly finished jobs
+    const checkJobs = async () => {
+      try {
+        const response = await authFetch(`${apiBaseUrl}/jobs`, { cache: "no-store" });
+        if (!response.ok) return;
+        const jobs = await response.json();
+        
+        const latestStatus: Record<string, boolean> = {};
+        for (const job of jobs) {
+          if (job.status === "completed") {
+            let toolKey = "jobs";
+            if (job.job_type.includes("image")) toolKey = "image";
+            if (job.job_type.includes("audio")) toolKey = "audio";
+            if (job.job_type.includes("video")) toolKey = "video";
+            if (job.job_type.includes("document")) toolKey = "document";
+            if (job.job_type.includes("rename")) toolKey = "rename";
+            
+            const jobTime = new Date(job.updated_at).getTime();
+            const seenTime = lastSeenTime[toolKey] || 0;
+            
+            if (jobTime > seenTime) {
+              latestStatus[toolKey] = true;
+            }
+          }
+        }
+        
+        setHasFinishedJobs(latestStatus);
+      } catch(e) {}
+    };
+    
+    void checkJobs();
+    const interval = setInterval(checkJobs, 4000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(pingInterval);
+    };
+  }, [user, lastSeenTime, apiBaseUrl, action]);
+
+  // When a user visits a tab, clear its notification
+  useEffect(() => {
+    if (activeView !== "landing") {
+      setLastSeenTime(prev => ({ ...prev, [activeView]: Date.now() }));
+      setHasFinishedJobs(prev => ({ ...prev, [activeView]: false }));
+    }
+  }, [activeView]);
 
   if (isLoading) return null;
   if (!user) return <AuthScreen />;
@@ -74,7 +149,11 @@ export default function HomePage() {
               type="button"
               className="landing-tool-button"
               onClick={() => setActiveView(item.key)}
+              style={{ position: "relative" }}
             >
+              {hasFinishedJobs[item.key] && (
+                <span className="notification-badge">!</span>
+              )}
               {item.label}
             </button>
           ))}
@@ -94,12 +173,17 @@ export default function HomePage() {
                 type="button"
                 className={`top-nav-item ${activeView === item.key ? "active" : ""}`}
                 onClick={() => setActiveView(item.key)}
+                style={{ position: "relative" }}
               >
+                {item.key !== "landing" && hasFinishedJobs[item.key] && (
+                  <span className="notification-badge" style={{ top: "-6px", right: "-6px", width: "18px", height: "18px", fontSize: "11px" }}>!</span>
+                )}
                 {item.label}
               </button>
             ))}
           </div>
           <div className="top-nav-user">
+            {user?.is_admin && <AdminPanel />}
             <span className="user-badge">{user?.username} {user?.is_admin ? "👑" : ""}</span>
             <button className="primary-button logout-button" onClick={logout}>
               Logout

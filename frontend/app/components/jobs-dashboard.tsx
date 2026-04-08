@@ -72,9 +72,24 @@ export function JobsDashboard() {
           <p>Live history of all conversion jobs across image, sound, video, and document modules.</p>
         </div>
 
-        <button className="primary-button" type="button" onClick={triggerCleanup}>
-          Cleanup finished jobs
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button className="primary-button" style={{ background: "transparent", borderColor: "#f87171", color: "#f87171" }} type="button" onClick={async () => {
+            if (!confirm("Are you sure you want to stop all active jobs?")) return;
+            try {
+              const response = await authFetch(`${apiBaseUrl}/admin/stop-all-jobs`, { method: "POST" });
+              const payload = await response.json();
+              setCleanupMessage(payload.message || "Jobs stopped.");
+              await loadJobs();
+            } catch(e) {
+              setCleanupMessage("Failed to stop jobs.");
+            }
+          }}>
+            Stop all jobs
+          </button>
+          <button className="primary-button" type="button" onClick={triggerCleanup}>
+            Cleanup finished jobs
+          </button>
+        </div>
       </div>
 
       {cleanupMessage ? <p className="selection-hint">{cleanupMessage}</p> : null}

@@ -1,18 +1,60 @@
 import uuid
+import json
+import time
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_active_admin
+from app.api.deps import get_current_active_admin, get_current_user
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import Token, UserCreate, UserRead
+from app.worker import get_queue
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+
+@router.post("/ping")
+def update_user_status(
+    action: str = Query("idle"),
+    current_user=Depends(get_current_user)
+) -> dict:
+    r = get_queue().connection
+    data = {
+        "username": current_user.username,
+        "is_admin": current_user.is_admin,
+        "action": action,
+        "last_seen": int(time.time())
+    }
+    r.hset("online_users", current_user.id, json.dumps(data))
+    return {"status": "ok"}
+
+
+@router.get("/online-users", dependencies=[Depends(get_current_active_admin)])
+def get_online_users() -> list[dict]:
+    r = get_queue().connection
+    users_data = r.hgetall("online_users")
+    
+    online = []
+    now = int(time.time())
+    for uid, ujson in users_data.items():
+        try:
+            udict = json.loads(ujson)
+            # consider offline if not seen in 15 seconds
+            if now - udict.get("last_seen", 0) < 15:
+                online.append(udict)
+            else:
+                # Cleanup stale
+                r.hdel("online_users", uid)
+        except:
+            pass
+            
+    # sort by username
+    online.sort(key=lambda x: x["username"])
+    return online
 
 @router.post("/register", response_model=UserRead, dependencies=[Depends(get_current_active_admin)])
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRead:

@@ -32,7 +32,15 @@ def run_batch_image_conversion(job_id: str, file_paths: list[str], target_format
         job_service.mark_processing(job)
         for index, file_path in enumerate(file_paths, start=1):
             source = Path(file_path)
-            output = output_dir / f"{index}_{source.stem}.{ext}"
+            
+            # Use a cleaner original filename instead of the uuid prefix
+            original_name = source.stem
+            if len(original_name) > 36 and "-" in original_name:
+                parts = original_name.split("_", 1)
+                if len(parts) > 1 and len(parts[0]) >= 32:
+                    original_name = parts[1]
+                    
+            output = output_dir / f"{original_name}_converted.{ext}"
             image_service.convert(source_path=source, output_path=output, target_format=normalized_format, quality=quality)
             outputs.append(output)
 
@@ -72,7 +80,14 @@ def run_batch_audio_conversion(job_id: str, file_paths: list[str], target_format
         job_service.mark_processing(job)
         for index, file_path in enumerate(file_paths, start=1):
             source = Path(file_path)
-            output = output_dir / f"{index}_{source.stem}.{normalized_format.lower()}"
+            
+            original_name = source.stem
+            if len(original_name) > 36 and "-" in original_name:
+                parts = original_name.split("_", 1)
+                if len(parts) > 1 and len(parts[0]) >= 32:
+                    original_name = parts[1]
+                    
+            output = output_dir / f"{original_name}_converted.{normalized_format.lower()}"
             audio_service.convert(source_path=source, output_path=output, target_format=normalized_format, bitrate=bitrate)
             outputs.append(output)
 
@@ -118,7 +133,14 @@ def run_batch_video_conversion(
         job_service.mark_processing(job)
         for index, file_path in enumerate(file_paths, start=1):
             source = Path(file_path)
-            output = output_dir / f"{index}_{source.stem}.{normalized_format.lower()}"
+            
+            original_name = source.stem
+            if len(original_name) > 36 and "-" in original_name:
+                parts = original_name.split("_", 1)
+                if len(parts) > 1 and len(parts[0]) >= 32:
+                    original_name = parts[1]
+                    
+            output = output_dir / f"{original_name}_converted.{normalized_format.lower()}"
             video_service.convert(
                 source_path=source,
                 output_path=output,
@@ -164,7 +186,21 @@ def run_batch_document_conversion(job_id: str, file_paths: list[str], target_for
         job_service.mark_processing(job)
         for file_path in file_paths:
             source = Path(file_path)
+            
+            original_name = source.stem
+            if len(original_name) > 36 and "-" in original_name:
+                parts = original_name.split("_", 1)
+                if len(parts) > 1 and len(parts[0]) >= 32:
+                    original_name = parts[1]
+                    
+            output_dir_clean = output_dir / f"{original_name}_converted"
             converted = document_service.convert(source_path=source, output_dir=output_dir, target_format=normalized_format)
+            
+            if converted and converted.exists():
+                new_converted_path = converted.with_name(f"{original_name}_converted{converted.suffix}")
+                shutil.move(str(converted), str(new_converted_path))
+                converted = new_converted_path
+                
             outputs.append(converted)
 
         bundle_path = storage.build_bundle_path(job_id, "documents")

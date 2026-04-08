@@ -5,7 +5,7 @@ import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
 import { authFetch } from "../lib/auth-fetch";
-
+import { useAction } from "../lib/action-context";
 
 const imageFormats = ["PNG", "JPG", "JPEG", "WEBP", "TIFF", "BMP", "GIF"] as const;
 
@@ -40,6 +40,8 @@ export function ImageConverter() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<ConversionResponse | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
+
+  const { setAction } = useAction();
 
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
@@ -120,6 +122,7 @@ export function ImageConverter() {
     }
 
     try {
+      setAction("Converting Image(s)");
       const query = new URLSearchParams({
         target_format: targetFormat,
         quality: String(quality),
@@ -147,6 +150,7 @@ export function ImageConverter() {
       setErrorMessage(error instanceof Error ? error.message : "Image conversion failed.");
     } finally {
       setIsSubmitting(false);
+      setAction("idle");
     }
   };
 

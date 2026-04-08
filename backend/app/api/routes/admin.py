@@ -9,6 +9,28 @@ from app.services.cleanup_service import CleanupService
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+@router.post("/stop-all-jobs")
+def stop_all_jobs(
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_active_admin),
+) -> dict[str, str]:
+    from app.worker import cancel_all_jobs
+    
+    # Custom helper function to empty queues
+    cancelled_count = cancel_all_jobs()
+    
+    # Also mark all pending/processing jobs as failed in DB
+    from app.models.job import Job
+    active_jobs = db.query(Job).filter(Job.status.in_(["queued", "processing"])).all()
+    db_cancelled = 0
+    for job in active_jobs:
+        job.status = "failed"
+        job.error_message = "Cancelled by admin"
+        db_cancelled += 1
+    db.commit()
+
+    return {"message": f"Emptied {cancelled_count} from queue and cancelled {db_cancelled} database jobs."}
+
 @router.post("/cleanup")
 def trigger_cleanup(
     older_than_hours: int = Query(default=24, ge=0), 

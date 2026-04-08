@@ -12,6 +12,16 @@ def get_queue() -> Queue:
     return Queue("bambam-jobs", connection=connection)
 
 
+def cancel_all_jobs() -> int:
+    """Empty the Redis queues."""
+    count = 0
+    try:
+        count += get_queue().empty()
+    except Exception:
+        pass
+    return count
+
+
 def enqueue_job(func, *args, **kwargs):
     settings = get_settings()
     timeout = kwargs.pop("job_timeout", settings.queue_default_timeout)

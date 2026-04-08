@@ -5,9 +5,9 @@ import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
 import { authFetch } from "../lib/auth-fetch";
+import { useAction } from "../lib/action-context";
 
-
-const videoFormats = ["MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"] as const;
+const videoFormats = ["MP4", "AVI", "MKV", "MOV", "WMV", "FLV", "WEBM", "GIF"] as const;
 
 type VideoConversionResponse = {
   job_id: string;
@@ -49,6 +49,8 @@ export function VideoConverter() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<VideoConversionResponse | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
+
+  const { setAction } = useAction();
 
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
@@ -200,6 +202,7 @@ export function VideoConverter() {
     }
 
     try {
+      setAction("Converting Video(s)");
       const query = new URLSearchParams({
         target_format: targetFormat,
         fps: String(fps),
@@ -239,6 +242,7 @@ export function VideoConverter() {
       setErrorMessage(error instanceof Error ? error.message : "Video conversion failed.");
     } finally {
       setIsSubmitting(false);
+      setAction("idle");
     }
   };
 

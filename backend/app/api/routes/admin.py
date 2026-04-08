@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_admin
@@ -11,12 +12,74 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.job import Job
 from app.models.user import User
+from app.models.bot_settings import BotSettings
 from app.services.cleanup_service import CleanupService
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+# ============ Schemas ============
+class BotSettingsUpdate(BaseModel):
+    telegram_bot_token: str | None = None
+    bot_enabled: bool | None = None
+
+
+# ============ Bot Settings Endpoints ============
+def _mask_token(token: str | None) -> str | None:
+    """Mask sensitive token for API responses (show first 8 chars + *****)."""
+    if not token or len(token) < 8:
+        return None
+    return f"{token[:8]}****"
+
+
+@router.get("/bot-settings")
+def get_bot_settings(
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_active_admin),
+) -> dict:
+    row = db.query(BotSettings).first()
+    if not row:
+        return {
+            "telegram_bot_token": None,
+            "bot_enabled": False,
+            "has_token": False,
+        }
+    return {
+        "telegram_bot_token": _mask_token(row.telegram_bot_token),
+        "bot_enabled": row.bot_enabled,
+        "has_token": bool(row.telegram_bot_token),
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+@router.put("/bot-settings")
+def update_bot_settings(
+    payload: BotSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_active_admin),
+) -> dict:
+    row = db.query(BotSettings).first()
+    if not row:
+        row = BotSettings(id=1)
+
+    if payload.telegram_bot_token is not None:
+        row.telegram_bot_token = payload.telegram_bot_token if payload.telegram_bot_token else None
+    if payload.bot_enabled is not None:
+        row.bot_enabled = payload.bot_enabled
+
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    return {
+        "message": "Bot settings updated",
+        "bot_enabled": row.bot_enabled,
+        "has_token": bool(row.telegram_bot_token),
+    }
+
+
+# ============ Utility Functions ============
 def _get_root(source: str) -> Path:
     settings = get_settings()
     if source == "outputs":

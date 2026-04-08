@@ -62,6 +62,26 @@ async def _invalidate_token() -> None:
         _token = None
 
 
+async def load_bot_token_from_db() -> str | None:
+    """
+    Load Telegram bot token from backend database.
+    Falls back to TELEGRAM_BOT_TOKEN env var if DB fetch fails or token not set.
+    Called at bot startup.
+    """
+    try:
+        resp = await _request("get", "/admin/bot-settings", timeout=10)
+        data = resp.json()
+        if data.get("telegram_bot_token"):
+            return data["telegram_bot_token"]
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to load bot token from DB: {exc}. Falling back to env var.")
+
+    # Fallback to environment variable
+    return os.getenv("TELEGRAM_BOT_TOKEN")
+
+
 async def _request(
     method: str,
     path: str,

@@ -22,10 +22,15 @@ type StoredFile = {
 export function AdminPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isStoredFilesOpen, setIsStoredFilesOpen] = useState(false);
+  const [isBotSettingsOpen, setIsBotSettingsOpen] = useState(false);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [source, setSource] = useState<"outputs" | "uploads">("outputs");
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [botToken, setBotToken] = useState("");
+  const [botEnabled, setBotEnabled] = useState(false);
+  const [botHasToken, setBotHasToken] = useState(false);
+  const [botSaveLoading, setBotSaveLoading] = useState(false);
 
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
@@ -65,10 +70,53 @@ export function AdminPanel() {
     }
   };
 
+  const fetchBotSettings = async () => {
+    try {
+      const res = await authFetch(`${apiBaseUrl}/admin/bot-settings`);
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        setBotEnabled(data.bot_enabled ?? false);
+        setBotHasToken(data.has_token ?? false);
+        setBotToken(""); // Clear input field
+      }
+    } catch (err) {}
+  };
+
+  const handleSaveBotSettings = async () => {
+    setBotSaveLoading(true);
+    try {
+      const payload: any = { bot_enabled: botEnabled };
+      if (botToken.trim()) {
+        payload.telegram_bot_token = botToken;
+      }
+
+      const res = await authFetch(`${apiBaseUrl}/admin/bot-settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setBotToken("");
+        setBotHasToken(result.has_token);
+        setBotEnabled(result.bot_enabled);
+      }
+    } catch (err) {
+    } finally {
+      setBotSaveLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen || !isStoredFilesOpen) return;
     void fetchFiles(source);
   }, [isOpen, source, isStoredFilesOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !isBotSettingsOpen) return;
+    void fetchBotSettings();
+  }, [isOpen, isBotSettingsOpen]);
 
   const handleDelete = async (file: StoredFile) => {
     const ok = window.confirm(`Delete ${file.name}?`);
@@ -231,6 +279,77 @@ export function AdminPanel() {
                 </ul>
               )}
             </>
+          )}
+
+          <div className="admin-panel-header" style={{ borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <h4>🤖 Bot Settings</h4>
+            <button
+              className="admin-panel-toggle"
+              style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+              onClick={() => setIsBotSettingsOpen((prev) => !prev)}
+            >
+              {isBotSettingsOpen ? "Hide" : "Show"}
+            </button>
+          </div>
+
+          {isBotSettingsOpen && (
+            <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "0.85rem", flex: 1 }}>Bot Enabled: {botEnabled ? "✓" : "✗"}</span>
+                <span style={{ fontSize: "0.85rem", flex: 1 }}>Token: {botHasToken ? "✓" : "Not configured"}</span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", marginBottom: 4, color: "var(--muted)" }}>
+                  Telegram Bot Token
+                </label>
+                <input
+                  type="password"
+                  placeholder="Paste your Telegram bot token from @BotFather"
+                  value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    fontSize: "0.85rem",
+                    background: "rgba(0,0,0,0.2)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "4px",
+                    color: "inherit",
+                    fontFamily: "monospace",
+                  }}
+                />
+                <p style={{ fontSize: "0.75rem", marginTop: 4, color: "var(--muted)" }}>
+                  Leave empty to keep current token
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={botEnabled}
+                    onChange={(e) => setBotEnabled(e.target.checked)}
+                    style={{ cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: "0.85rem" }}>Bot Enabled</span>
+                </label>
+              </div>
+
+              <button
+                className="admin-panel-toggle"
+                onClick={() => void handleSaveBotSettings()}
+                disabled={botSaveLoading}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "0.85rem",
+                  opacity: botSaveLoading ? 0.5 : 1,
+                  cursor: botSaveLoading ? "not-allowed" : "pointer",
+                }}
+              >
+                {botSaveLoading ? "Saving..." : "Save Bot Settings"}
+              </button>
+            </div>
           )}
         </div>
       )}

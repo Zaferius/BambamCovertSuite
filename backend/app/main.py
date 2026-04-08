@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.db.session import engine, SessionLocal
 from app.models.job import Job
 from app.models.user import User
+from app.models.bot_settings import BotSettings
 
 settings = get_settings()
 

@@ -2,6 +2,7 @@
 Bambam Converter Bot — entry point.
 
 Registers all handlers and starts aiogram long-polling.
+Token is loaded from backend DB first; falls back to TELEGRAM_BOT_TOKEN env var.
 """
 
 import asyncio
@@ -13,6 +14,7 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 from bot.handlers import start, file_handler, callbacks
+from bot.api import client as api_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,10 +24,17 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    if not token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is not set")
+    # Try loading token from backend database first; fall back to env var
+    logger.info("Loading Telegram bot token...")
+    token = await api_client.load_bot_token_from_db()
 
+    if not token:
+        raise RuntimeError(
+            "TELEGRAM_BOT_TOKEN not set in database or environment. "
+            "Please configure it via the admin panel or set TELEGRAM_BOT_TOKEN env var."
+        )
+
+    logger.info("Token loaded. Initializing bot...")
     bot = Bot(
         token=token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),

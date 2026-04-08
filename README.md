@@ -46,7 +46,7 @@ This repository now includes an in-progress self-hosted web application stack al
 |---|---|---|---|---|
 | Image | Yes | Yes | Yes | Quality slider active for JPG/JPEG/WEBP only |
 | Sound | Yes | Yes | Yes | Bitrate control + waveform trim (MM:SS.s inputs) |
-| Video | Yes | Yes | Yes | Format/FPS/resize + single-file trim workflow |
+| Video | Yes | Yes | Yes | Format/FPS/crop + single-file trim workflow |
 | Document | Yes | Yes | Yes | LibreOffice headless only |
 | Batch Rename | No | No | No | Not yet ported to web |
 
@@ -55,7 +55,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
 - Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, and Jobs
 - Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox
-- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position resize overlay handles
+- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position crop overlay handles
 - Admin panel: active users + stored files manager with authenticated view/delete actions
 - All converter screens show an animated spinner with live job status during conversion
 
@@ -453,6 +453,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Version 1.3.5 (Latest)
 - ✨ Video resize now automatically normalizes odd dimensions (e.g., 471x323) to even numbers to ensure codec compatibility
+- 🐛 Fixed FFmpeg "reset_sar" option error by switching to standardized "setsar=1" filter for better version compatibility
 - ✨ Jobs dashboard now shows newly queued jobs immediately during upload flow
 - ✨ Jobs table now includes a right-side per-job `Download` action
 - ✨ Admin storage section now supports one-click `Delete All` for `uploads` + `outputs`

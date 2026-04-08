@@ -14,8 +14,12 @@ def ensure_even_dimension(value: int) -> int:
 
 def normalize_resize_dimensions(width: int | None, height: int | None) -> tuple[int, int]:
     if width is None or height is None:
-        raise ValueError("Width and height are required when resize is enabled")
+        raise ValueError("Width and height are required when crop is enabled")
     return ensure_even_dimension(width), ensure_even_dimension(height)
+
+
+def normalize_crop_offset(value: int) -> int:
+    return value if value % 2 == 0 else value - 1
 
 
 def get_ffmpeg_cmd() -> list[str]:
@@ -38,6 +42,8 @@ class VideoConversionService:
         resize_enabled: bool = False,
         width: int | None = None,
         height: int | None = None,
+        crop_x: int | None = None,
+        crop_y: int | None = None,
         trim_enabled: bool = False,
         trim_start: float | None = None,
         trim_end: float | None = None,
@@ -60,9 +66,11 @@ class VideoConversionService:
 
         if resize_enabled:
             normalized_width, normalized_height = normalize_resize_dimensions(width, height)
+            nx = normalize_crop_offset(crop_x if crop_x is not None else 0)
+            ny = normalize_crop_offset(crop_y if crop_y is not None else 0)
             cmd += [
                 "-vf",
-                f"scale=w={normalized_width}:h={normalized_height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={normalized_width}:{normalized_height}:(ow-iw)/2:(oh-ih)/2,setsar=1",
+                f"crop={normalized_width}:{normalized_height}:{nx}:{ny}",
             ]
 
         if fps > 0:
@@ -90,6 +98,8 @@ class VideoConversionService:
         resize_enabled: bool = False,
         width: int | None = None,
         height: int | None = None,
+        crop_x: int | None = None,
+        crop_y: int | None = None,
         trim_enabled: bool = False,
         trim_start: float | None = None,
         trim_end: float | None = None,
@@ -102,6 +112,8 @@ class VideoConversionService:
             resize_enabled=resize_enabled,
             width=width,
             height=height,
+            crop_x=crop_x,
+            crop_y=crop_y,
             trim_enabled=trim_enabled,
             trim_start=trim_start,
             trim_end=trim_end,

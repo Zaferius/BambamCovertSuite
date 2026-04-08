@@ -363,6 +363,8 @@ export function VideoConverter() {
       if (resizeEnabled) {
         query.set("width", width);
         query.set("height", height);
+        query.set("crop_x", String(Math.round(overlayRect.left * sourceWidth)));
+        query.set("crop_y", String(Math.round(overlayRect.top * sourceHeight)));
       }
 
       if (!isBatch && trimEnabled && videoDuration > 0) {
@@ -430,22 +432,8 @@ export function VideoConverter() {
 
         <label className="checkbox-group">
           <input type="checkbox" checked={resizeEnabled} onChange={(event) => setResizeEnabled(event.target.checked)} />
-          <span>Enable resize</span>
+          <span>Enable crop</span>
         </label>
-
-        {resizeEnabled ? (
-          <div className="form-grid">
-            <label className="field-group">
-              <span>Width</span>
-              <input type="number" min="1" value={width} onChange={(event) => setWidth(event.target.value)} />
-            </label>
-
-            <label className="field-group">
-              <span>Height</span>
-              <input type="number" min="1" value={height} onChange={(event) => setHeight(event.target.value)} />
-            </label>
-          </div>
-        ) : null}
 
         {selectedFiles.length === 1 && previewUrl ? (
           <section className="trim-card">
@@ -461,7 +449,12 @@ export function VideoConverter() {
               <video ref={videoRef} className="trim-preview" src={previewUrl} controls={!resizeEnabled} preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
               {resizeEnabled ? (
                 <div className="video-resize-overlay" style={{ left: `${overlayRect.left * 100}%`, top: `${overlayRect.top * 100}%`, width: `${overlayRect.w * 100}%`, height: `${overlayRect.h * 100}%` }}>
-                  <span className="resize-overlay-label">{width} × {height}px</span>
+                  <span className="resize-overlay-label">
+                    {width} × {height}px
+                    {(overlayRect.left > 0 || overlayRect.top > 0) && (
+                      <> @ {Math.round(overlayRect.left * sourceWidth)},{Math.round(overlayRect.top * sourceHeight)}</>
+                    )}
+                  </span>
                   {(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeHandle[]).map((handle) => (
                     <button
                       key={handle}
@@ -608,7 +601,7 @@ export function VideoConverter() {
             <strong>FPS:</strong> {result.fps}
           </p>
           <p>
-            <strong>Resize:</strong> {result.resize_enabled ? `${result.width}x${result.height}` : "Disabled"}
+            <strong>Crop:</strong> {result.resize_enabled ? `${result.width}x${result.height}` : "Disabled"}
           </p>
           <p>
             <strong>Status:</strong> {result.status}

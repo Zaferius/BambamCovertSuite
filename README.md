@@ -45,7 +45,55 @@ This repository now includes an in-progress self-hosted web application stack al
 - Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, and Jobs
 - Video screen includes minimal trim area (preview + dual-handle range slider + manual start/end inputs)
 
-## 🚀 Web App Quick Start
+## 🚀 Web App Deployment (Coolify / Docker VDS)
+
+To deploy this suite on a VPS (like Ubuntu with Coolify or raw Docker), follow these steps:
+
+### 1. Environment Variables
+In your deployment panel (Coolify, Portainer, etc.), you **must** set these environment variables:
+
+**Backend Settings:**
+```env
+APP_NAME=Bambam Converter Suite Web
+APP_ENV=production
+API_HOST=0.0.0.0
+API_PORT=8000
+REDIS_URL=redis://redis:6379/0
+
+# IMPORTANT: Replace with your VDS IP or Domain
+CORS_ORIGINS=["https://bambam.zaferakkan.com"]
+
+# File Limits
+MAX_UPLOAD_SIZE_MB=250
+QUEUE_DEFAULT_TIMEOUT=30m
+QUEUE_VIDEO_TIMEOUT=120m
+QUEUE_DOCUMENT_TIMEOUT=60m
+```
+
+**Frontend Settings:**
+```env
+# IMPORTANT: Replace with your VDS IP or Domain (Port 8000 is for API)
+NEXT_PUBLIC_API_BASE_URL=https://api-bambam.zaferakkan.com
+```
+
+**Port Mapping:**
+If you need to change public ports, use these (Default: 8000 for API, 3000 for Frontend):
+```env
+API_PUBLIC_PORT=8000
+FRONTEND_PUBLIC_PORT=3000
+```
+
+### 2. Deployment Steps
+1.  **Clone/Import** the repository to Coolify.
+2.  **Configure Environment Variables** as shown above.
+3.  **Deploy**. Coolify will use the `docker-compose.yml` automatically.
+
+### ⚠️ Troubleshooting: Port Already Allocated
+If you see `Bind for 0.0.0.0:8000 failed: port is already allocated`:
+1.  Check if another service is using port 8000: `lsof -i :8000`
+2.  Or change `API_PUBLIC_PORT` to `8001` in your environment variables and update `NEXT_PUBLIC_API_BASE_URL` accordingly.
+
+## 🚀 Web App Quick Start (Local)
 
 ```bash
 docker compose up --build

@@ -70,7 +70,9 @@ export function distributeProgress(
     } else if (totalPct <= sliceStart) {
       pct = 0;
     } else {
-      pct = Math.round(((totalPct - sliceStart) / (100 / n)));
+      const sliceProgress = totalPct - sliceStart;
+      const sliceSize = 100 / n;
+      pct = Math.round((sliceProgress / sliceSize) * 100);
     }
 
     return { name: f.name, pct };

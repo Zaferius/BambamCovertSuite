@@ -11,7 +11,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.post("/cleanup")
 def trigger_cleanup(
-    older_than_hours: int = Query(default=24, ge=1), 
+    older_than_hours: int = Query(default=24, ge=0), 
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_active_admin),
 ) -> dict[str, int]:

@@ -101,7 +101,7 @@ export default function HomePage() {
           </div>
           <div className="top-nav-user">
             <span className="user-badge">{user?.username} {user?.is_admin ? "👑" : ""}</span>
-            <button className="primary-button inline-button logout-button" onClick={logout}>
+            <button className="primary-button logout-button" onClick={logout}>
               Logout
             </button>
           </div>

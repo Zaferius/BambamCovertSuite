@@ -440,7 +440,15 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.3 (Latest)
+### Version 1.3.4 (Latest)
+- ✨ Implemented secure JWT-based authentication system for the web app
+- ✨ First registered user is automatically granted admin privileges on fresh database
+- ✨ Frontend registration disabled for public; admin-only user creation supported
+- 🐛 Fixed SQLAlchemy circular import issues preventing backend startup
+- 🐛 Resolved Coolify Traefik 503 deployment errors caused by undefined transport labels
+- 🐛 Fixed `passlib` and `bcrypt` version incompatibility causing worker and API crashes
+
+### Version 1.3.3
 - ✨ Per-file upload progress bars on all converter tabs — files cascade-fill left to right as upload progresses
 - ✨ Collapsible upload progress panel for batches larger than 5 files — shows overall % and expand/collapse toggle
 - ✨ Upload phase and job processing phase are visually separated: progress bars during upload, spinner during queue/processing

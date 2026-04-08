@@ -47,7 +47,7 @@ export function JobsDashboard() {
 
   const triggerCleanup = async () => {
     try {
-      const response = await authFetch(`${apiBaseUrl}/admin/cleanup?older_than_hours=24`, {
+      const response = await authFetch(`${apiBaseUrl}/admin/cleanup?older_than_hours=0`, {
         method: "POST",
       });
 

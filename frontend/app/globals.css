@@ -189,9 +189,34 @@ h1 {
 
 .top-nav {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 20px;
+}
+
+.top-nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.top-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-badge {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.logout-button {
+  margin-top: 0;
+  padding: 8px 16px;
+  font-size: 0.9rem;
 }
 
 .top-nav-item {

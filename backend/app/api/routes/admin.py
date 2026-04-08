@@ -53,6 +53,16 @@ def get_bot_settings(
     }
 
 
+@router.get("/bot-settings/token")
+def get_bot_token_raw(
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_active_admin),
+) -> dict:
+    """Returns raw (unmasked) token — used by the bot service at startup."""
+    row = db.query(BotSettings).first()
+    return {"telegram_bot_token": row.telegram_bot_token if row else None}
+
+
 @router.put("/bot-settings")
 def update_bot_settings(
     payload: BotSettingsUpdate,

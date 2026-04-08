@@ -64,18 +64,20 @@ async def _invalidate_token() -> None:
 
 async def load_bot_token_from_db() -> str | None:
     """
-    Load Telegram bot token from backend database.
+    Load Telegram bot token from backend database (raw, unmasked).
     Falls back to TELEGRAM_BOT_TOKEN env var if DB fetch fails or token not set.
     Called at bot startup.
     """
+    import logging
+    logger = logging.getLogger(__name__)
     try:
-        resp = await _request("get", "/admin/bot-settings", timeout=10)
+        resp = await _request("get", "/admin/bot-settings/token", timeout=10)
         data = resp.json()
-        if data.get("telegram_bot_token"):
-            return data["telegram_bot_token"]
+        token = data.get("telegram_bot_token")
+        if token:
+            logger.info("Bot token loaded from database.")
+            return token
     except Exception as exc:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.warning(f"Failed to load bot token from DB: {exc}. Falling back to env var.")
 
     # Fallback to environment variable
@@ -94,12 +96,15 @@ async def _request(
     for attempt in range(2):
         token = await _get_token()
         headers = {"Authorization": f"Bearer {token}"}
+        kwargs: dict = {"headers": headers}
+        if params is not None:
+            kwargs["params"] = params
+        if files is not None:
+            kwargs["files"] = files
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await getattr(client, method)(
                 f"{API_BASE_URL}{path}",
-                headers=headers,
-                params=params,
-                files=files,
+                **kwargs,
             )
         if resp.status_code == 401 and attempt == 0:
             await _invalidate_token()

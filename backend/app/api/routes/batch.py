@@ -14,7 +14,7 @@ from app.services.image_service import IMAGE_FORMAT_MAP
 from app.services.jobs import JobService
 from app.services.storage import StorageService
 from app.services.upload_validation import UploadValidationService
-from app.services.video_service import VIDEO_FORMATS
+from app.services.video_service import VIDEO_FORMATS, normalize_resize_dimensions
 from app.tasks.batch_tasks import (
     run_batch_rename,
     run_batch_audio_conversion,
@@ -80,6 +80,11 @@ async def create_batch_video_job(
     if resize_enabled and (width is None or height is None):
         raise HTTPException(status_code=400, detail="Width and height are required when resize is enabled")
 
+    normalized_width = width
+    normalized_height = height
+    if resize_enabled:
+        normalized_width, normalized_height = normalize_resize_dimensions(width, height)
+
     storage = StorageService()
     job_service = JobService(db)
     validator = UploadValidationService()
@@ -101,8 +106,8 @@ async def create_batch_video_job(
         normalized_format,
         fps,
         resize_enabled,
-        width,
-        height,
+        normalized_width,
+        normalized_height,
         job_timeout=storage.settings.queue_video_timeout,
         retry_max=1,
     )

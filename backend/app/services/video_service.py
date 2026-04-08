@@ -6,6 +6,18 @@ from pathlib import Path
 VIDEO_FORMATS = {"MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"}
 
 
+def ensure_even_dimension(value: int) -> int:
+    if value < 1:
+        raise ValueError("Resize dimensions must be greater than 0")
+    return value if value % 2 == 0 else value + 1
+
+
+def normalize_resize_dimensions(width: int | None, height: int | None) -> tuple[int, int]:
+    if width is None or height is None:
+        raise ValueError("Width and height are required when resize is enabled")
+    return ensure_even_dimension(width), ensure_even_dimension(height)
+
+
 def get_ffmpeg_cmd() -> list[str]:
     exe = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
     here = os.path.dirname(os.path.abspath(__file__))
@@ -47,11 +59,10 @@ class VideoConversionService:
         cmd += ["-i", str(source_path)]
 
         if resize_enabled:
-            if not width or not height:
-                raise ValueError("Width and height are required when resize is enabled")
+            normalized_width, normalized_height = normalize_resize_dimensions(width, height)
             cmd += [
                 "-vf",
-                f"scale=w={width}:h={height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2",
+                f"scale=w={normalized_width}:h={normalized_height}:force_original_aspect_ratio=decrease:force_divisible_by=2:reset_sar=1,pad={normalized_width}:{normalized_height}:(ow-iw)/2:(oh-ih)/2",
             ]
 
         if fps > 0:

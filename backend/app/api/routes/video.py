@@ -11,7 +11,7 @@ from app.schemas.video import VideoJobCreateResponse
 from app.services.jobs import JobService
 from app.services.storage import StorageService
 from app.services.upload_validation import UploadValidationService
-from app.services.video_service import VIDEO_FORMATS
+from app.services.video_service import VIDEO_FORMATS, normalize_resize_dimensions
 from app.tasks.video_tasks import run_video_conversion
 from app.worker import enqueue_job
 
@@ -39,6 +39,11 @@ async def create_video_job(
 
     if resize_enabled and (width is None or height is None):
         raise HTTPException(status_code=400, detail="Width and height are required when resize is enabled")
+
+    normalized_width = width
+    normalized_height = height
+    if resize_enabled:
+        normalized_width, normalized_height = normalize_resize_dimensions(width, height)
 
     if trim_enabled:
         if trim_start is None or trim_end is None:
@@ -68,8 +73,8 @@ async def create_video_job(
         normalized_format,
         fps,
         resize_enabled,
-        width,
-        height,
+        normalized_width,
+        normalized_height,
         trim_enabled,
         trim_start,
         trim_end,
@@ -83,8 +88,8 @@ async def create_video_job(
         target_format=normalized_format,
         fps=fps,
         resize_enabled=resize_enabled,
-        width=width,
-        height=height,
+        width=normalized_width,
+        height=normalized_height,
         trim_enabled=trim_enabled,
         trim_start=trim_start,
         trim_end=trim_end,

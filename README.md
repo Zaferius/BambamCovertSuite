@@ -55,7 +55,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
 - Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, and Jobs
 - Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox
-- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position crop overlay handles
+- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position crop overlay handles — selected region is cropped (not scaled) in output
 - Admin panel: active users + stored files manager with authenticated view/delete actions
 - All converter screens show an animated spinner with live job status during conversion
 
@@ -210,6 +210,33 @@ These help control upload limits and long-running worker behavior for self-hoste
 
 The desktop app remains in the repository, but ongoing migration work is focused on the self-hosted web app.
 
+## 🤖 Telegram Bot
+
+A Telegram bot service is available under `[bot/](bot/)` as an additional interface to the conversion backend.
+
+### Features (Phase 1)
+- Send any file → bot detects type automatically (image, audio, video, document)
+- Inline keyboard presents available conversion options
+- Polls backend job queue and returns the converted file when done
+- Supports: Images (PNG/JPG/WEBP), Audio (MP3/WAV), Video (MP4), Documents (PDF)
+
+### Setup
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) and get a token
+2. Add to your `.env` file (project root):
+```env
+TELEGRAM_BOT_TOKEN=your_token_here
+BOT_API_USERNAME=admin
+BOT_API_PASSWORD=bambam123
+```
+3. Start with Docker Compose (bot service is included automatically):
+```bash
+docker compose up --build
+```
+
+The bot authenticates against the FastAPI backend using `BOT_API_USERNAME` / `BOT_API_PASSWORD`.
+These default to the admin credentials — create a dedicated bot user via the admin panel for production use.
+
 ## 🧪 Testing
 
 Current backend smoke and test assets:
@@ -252,7 +279,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.3.5-blue)
+![Version](https://img.shields.io/badge/version-1.3.7-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -451,7 +478,19 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.5 (Latest)
+### Version 1.3.7 (Latest)
+- ✨ Telegram bot service added (`bot/`) — send files to the bot for conversion via inline keyboard
+- ✨ Bot auto-detects file type (image/audio/video/document) from MIME type and extension
+- ✨ Phase 1: deterministic, AI-less flow; supports PNG/JPG/WEBP images, MP3/WAV audio, MP4 video, PDF documents
+- ✨ `BOT_API_USERNAME` / `BOT_API_PASSWORD` env vars control bot's backend credentials
+
+### Version 1.3.6
+- ✨ Video crop overlay now performs a true FFmpeg crop instead of scaling — the dragged region is cropped out of the original frame
+- ✨ Crop overlay label now shows both dimensions and pixel offset (e.g. `960 × 540px @ 480,270`)
+- 🐛 Removed standalone width/height inputs that were misleading without positional context; crop area is set exclusively via the visual overlay handles
+- ✨ Backend `crop_x` / `crop_y` query parameters added to `/video/jobs` for precise crop offset control
+
+### Version 1.3.5
 - ✨ Video resize now automatically normalizes odd dimensions (e.g., 471x323) to even numbers to ensure codec compatibility
 - 🐛 Fixed FFmpeg "reset_sar" option error by switching to standardized "setsar=1" filter for better version compatibility
 - ✨ Jobs dashboard now shows newly queued jobs immediately during upload flow

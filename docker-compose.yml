@@ -62,6 +62,20 @@ services:
       retries: 5
       start_period: 30s
 
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    container_name: bambam-bot
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - API_BASE_URL=http://api:8000
+      - BOT_API_USERNAME=${BOT_API_USERNAME:-admin}
+      - BOT_API_PASSWORD=${BOT_API_PASSWORD:-bambam123}
+    depends_on:
+      - api
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: bambam-redis

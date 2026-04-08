@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: bambam-api
-    ports:
-      - "${API_PUBLIC_PORT:-8000}:8000"
     volumes:
       - ./data/uploads:/data/uploads
       - ./data/outputs:/data/outputs
@@ -15,6 +13,8 @@ services:
       - redis
     restart: unless-stopped
     labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.bambam-api.loadbalancer.server.port=8000"
       - "traefik.http.middlewares.bambam-api-bodysize.buffering.maxRequestBodyBytes=268435456"
       - "traefik.http.middlewares.bambam-api-bodysize.buffering.memRequestBodyBytes=33554432"
       - "traefik.http.serversTransports.bambam-api-transport.forwardingTimeouts.responseHeaderTimeout=600s"
@@ -54,8 +54,6 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: bambam-frontend
-    ports:
-      - "${FRONTEND_PUBLIC_PORT:-3000}:3000"
     depends_on:
       - api
     restart: unless-stopped

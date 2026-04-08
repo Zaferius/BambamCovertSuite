@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "https://bambam.zaferakkan.com"])
     redis_url: str = "redis://redis:6379/0"
     database_url: str = f"sqlite:///{(DATA_DIR / 'db' / 'bambam_web.db').as_posix()}"
     upload_dir: Path = DATA_DIR / "uploads"

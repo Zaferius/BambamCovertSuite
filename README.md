@@ -212,125 +212,140 @@ The desktop app remains in the repository, but ongoing migration work is focused
 
 ## 🤖 Telegram Bot
 
-A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the Bambam backend via Telegram messaging.
+A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the Bambam backend via Telegram messaging. Bot configuration is managed entirely through the **Admin Panel** — no environment files needed.
 
-### 🎯 Phase 1: Deterministic File Conversion (AI-less)
+### 🎯 Phase 1: Auto-Detection & Instant Conversion (Live ✅)
 
 **Features:**
-- Auto-detects file type from MIME type and file extension (image/audio/video/document)
-- Shows inline keyboard with available conversion options
-- Polls backend job queue and returns converted file when done
-- Single-worker compatible, no AI or natural language parsing
+- ✅ Auto-detects file type from MIME type and file extension (image/audio/video/document)
+- ✅ Shows inline keyboard with available conversion options per file type
+- ✅ Polls backend job queue and returns converted file when done
+- ✅ Single-worker compatible, deterministic (no AI)
+- ✅ Bot configuration via frontend **Admin Panel** (no .env files)
+- ✅ JWT authentication against FastAPI backend (auto-renew on token expiry)
 
 **Supported Conversions:**
-| Type | Formats |
-|------|---------|
-| Image | PNG, JPG, WEBP |
-| Audio | MP3, WAV |
-| Video | MP4 |
-| Document | PDF |
+| Type | Input Formats | Output Formats |
+|------|---------------|----------------|
+| 🖼 Image | PNG, JPG, JPEG, WEBP, BMP, GIF, TIFF | PNG, JPG, WEBP |
+| 🎵 Audio | MP3, WAV, FLAC, OGG, M4A, AAC | MP3, WAV |
+| 🎬 Video | MP4, MOV, MKV, AVI, WEBM, GIF | MP4 |
+| 📄 Document | PDF, DOCX, DOC, TXT, RTF, ODT | PDF |
 
-### 📋 Quick Start
+### 🚀 Quick Start (3 Steps)
 
-1. **Create a Telegram bot** via [@BotFather](https://t.me/BotFather)
-   - Send `/newbot` and follow prompts
-   - Copy the API token
+**Step 1: Create Telegram Bot**
+- Go to [@BotFather](https://t.me/BotFather)
+- Send `/newbot` → follow prompts → copy your **bot token**
 
-2. **Configure environment** — add to project root `.env` file:
-```env
-TELEGRAM_BOT_TOKEN=<your_token_from_botfather>
-BOT_API_USERNAME=admin
-BOT_API_PASSWORD=bambam123
+**Step 2: Configure via Admin Panel**
+- Open web app: `http://localhost:3000`
+- Login with admin credentials
+- Click **"👥 Admin Panel"** (top right)
+- Open **"🤖 Bot Settings"**
+- Paste token → check "Bot Enabled" → **Save**
+
+**Step 3: Test**
+- Find your bot on Telegram and send `/start`
+- Send any image, video, audio, or document
+- Select conversion option from buttons
+- ⏳ Wait for processing → 🎉 Get result back
+
+**That's it!** No Docker restarts, no `.env` editing. Bot reads config from database at startup.
+
+### 🔧 How It Works
+
+```
+User: sends file to bot
+  ↓
+Bot: detects type (image/audio/video/document)
+  ↓
+Bot: shows inline keyboard with options
+  ↓
+User: clicks button (e.g., "Convert to MP3")
+  ↓
+Bot: authenticates to backend (admin account)
+  ↓
+Bot: uploads file → creates job → polls for completion
+  ↓
+Backend: FFmpeg/LibreOffice processes file
+  ↓
+Job complete: Bot downloads → sends to user
+  ↓
+User: gets converted file ✅
 ```
 
-3. **Start the bot** with Docker Compose:
-```bash
-docker compose up --build
-```
+**Architecture:**
+- `[bot/handlers/](bot/handlers/)` — `/start`, `/help` commands + file/callback handlers
+- `[bot/services/](bot/services/)` — File type detection, keyboard builder, session store (in-memory)
+- `[bot/api/client.py](bot/api/client.py)` — Backend communication (login, job creation, polling, file download)
 
-The bot service will start automatically and begin polling Telegram for incoming messages.
+### 🔐 Security & Credentials
 
-### 🔧 Architecture
+**Admin Panel Configuration:**
+- Token stored in SQLite database (encrypted at rest optional)
+- Only visible/editable by admin users
+- Token is **masked** in UI (shows `12345678****`)
 
-```
-User sends file to Telegram Bot
-        ↓
-File Type Detection (MIME + extension)
-        ↓
-Inline Keyboard (conversion options)
-        ↓
-User selects option
-        ↓
-Bot downloads file from Telegram
-        ↓
-Bot uploads to FastAPI backend (/image/jobs, /audio/jobs, etc.)
-        ↓
-Bot polls job status every 3 seconds
-        ↓
-Job completes → Bot downloads result
-        ↓
-Bot sends file back to user
-```
+**Backend Authentication:**
+- Bot logs in as admin (or custom user) via JWT
+- Auto-renews token on expiry
+- All API calls use Bearer token
 
-**Services:**
-- `[bot/handlers/](bot/handlers/)` — Command & message handlers (start, file upload, keyboard callbacks)
-- `[bot/services/](bot/services/)` — File detection, keyboard building, session store
-- `[bot/api/client.py](bot/api/client.py)` — FastAPI integration (auth, job creation, polling, download)
+**Best Practices:**
+1. **Local/Self-hosted:** Current setup is fine (admin credentials default)
+2. **Production:**
+   - Create dedicated bot user (non-admin) via admin panel
+   - Use strong password
+   - Rotate default admin credentials
+   - Enable HTTPS / reverse proxy with SSL
 
-### 🔐 Authentication
+### 📊 Admin Panel Integration
 
-The bot logs in to the FastAPI backend using `BOT_API_USERNAME` / `BOT_API_PASSWORD` (default: admin credentials).
+The bot is now fully managed via **Admin Panel** under **"🤖 Bot Settings"** section:
 
-**For production:**
-1. Create a dedicated bot user via the web app admin panel
-2. Update `BOT_API_USERNAME` and `BOT_API_PASSWORD` in your deployment environment
-3. Rotate default admin credentials
+| Setting | Type | Notes |
+|---------|------|-------|
+| Telegram Bot Token | Password Input | Leave empty to keep current. Required to enable bot. |
+| Bot Enabled | Toggle | Turn bot on/off without restarting services |
+| Status Indicators | Display | Shows if token is set + if bot is enabled |
 
-### 🚀 Environment Variables
-
-**Required:**
-- `TELEGRAM_BOT_TOKEN` — API token from [@BotFather](https://t.me/BotFather)
-
-**Optional (defaults shown):**
-- `API_BASE_URL=http://api:8000` — Backend API endpoint
-- `BOT_API_USERNAME=admin` — Backend user for bot login
-- `BOT_API_PASSWORD=bambam123` — Backend password for bot login
+Changes take effect after bot container restart (automatic on deploy).
 
 ### 🐛 Troubleshooting
 
-**Bot doesn't respond to files:**
-- Verify `TELEGRAM_BOT_TOKEN` is set and valid
-- Check bot container logs: `docker logs bambam-bot`
-- Ensure FastAPI backend is healthy: `docker logs bambam-api`
+**Bot doesn't respond:**
+- Confirm token is saved in Admin Panel
+- Check bot is **enabled** (toggle ON)
+- Verify backend is running: `docker logs bambam-api`
+- View bot logs: `docker logs bambam-bot`
 
-**"Session expired" error:**
-- Bot session times out if no file is selected for >5 minutes
-- Solution: Send the file again
+**"Failed ❌" when converting:**
+- Check backend worker: `docker logs bambam-worker`
+- File might be unsupported format
+- Worker queue might be stuck (check Redis: `docker logs bambam-redis`)
 
-**API authentication fails:**
-- Verify `BOT_API_USERNAME` / `BOT_API_PASSWORD` match a valid backend user
-- Check if that user is active in the admin panel
+**Bot takes too long:**
+- Default timeout: 10 minutes per job
+- Large videos/documents naturally take longer
+- FFmpeg + LibreOffice process time depends on file size
 
-**Job takes a long time:**
-- Large files or slow conversion triggers longer polling
-- Default timeout is 10 minutes per job
-- Check backend worker status: `docker logs bambam-worker`
-
-### 🔮 Future Phases (Not Yet Implemented)
+### 🔮 Future Phases (Roadmap)
 
 **Phase 2: Parameter Customization**
-- Allow users to select bitrate, trim points, resize dimensions via the chat
-- Interactive parameter forms via inline keyboards
+- Interactive parameter selection: bitrate, trim, resize, quality
+- Inline forms via keyboard buttons
 
-**Phase 3: Natural Language Intent Parsing**
-- Accept commands like "convert this to MP3 at 256kbps"
-- GPT-based intent parsing with function calling (optional)
+**Phase 3: Natural Language Intent Parsing** (Optional)
+- Accept voice/text commands: *"convert to MP3 at 320kbps"*
+- GPT-based intent parsing with function calling
+- Context-aware conversation flow
 
 **Phase 4: Advanced Features**
-- Background removal (rembg)
+- Background removal (rembg integration)
 - Batch file processing
-- Conversion history per user
-- Usage analytics
+- Per-user conversion history
+- Usage analytics & quotas
 
 ## 🧪 Testing
 
@@ -575,9 +590,15 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Version 1.3.7 (Latest)
 - ✨ Telegram bot service added (`bot/`) — send files to the bot for conversion via inline keyboard
-- ✨ Bot auto-detects file type (image/audio/video/document) from MIME type and extension
-- ✨ Phase 1: deterministic, AI-less flow; supports PNG/JPG/WEBP images, MP3/WAV audio, MP4 video, PDF documents
-- ✨ `BOT_API_USERNAME` / `BOT_API_PASSWORD` env vars control bot's backend credentials
+- ✨ Bot auto-detects file type (image/audio/video/document) from MIME type and extension  
+- ✨ Bot configuration moved to **Admin Panel** — no `.env` files needed (token + enabled toggle)
+- ✨ `BotSettings` database table stores token + enabled flag (singleton row)
+- ✨ Backend `/admin/bot-settings` + `/admin/bot-settings/token` endpoints (admin-only)
+- ✨ Frontend Admin Panel new "🤖 Bot Settings" section with token input + enable/disable toggle
+- ✨ Bot reads config from database at startup (env var fallback for retrograde compat)
+- ✨ Phase 1: deterministic, AI-less flow; supports PNG/JPG/WEBP, MP3/WAV, MP4, PDF
+- 🐛 Fixed bot Dockerfile COPY path and module imports (`bot/` subdirectory structure)
+- 🐛 Fixed httpx GET request parameter handling (files param only on POST)
 
 ### Version 1.3.6
 - ✨ Video crop overlay now performs a true FFmpeg crop instead of scaling — the dragged region is cropped out of the original frame

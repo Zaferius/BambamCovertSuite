@@ -26,8 +26,15 @@ class DocumentConversionService:
         ]
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr or "LibreOffice document conversion error")
+        if result.returncode != 0 or "source file could not be loaded" in result.stderr or "source file could not be loaded" in result.stdout:
+            raise RuntimeError(
+                f"LibreOffice conversion failed.\n"
+                f"CMD: {' '.join(cmd)}\n"
+                f"RETURN CODE: {result.returncode}\n"
+                f"STDOUT: {result.stdout}\n"
+                f"STDERR: {result.stderr}\n"
+                f"SOURCE EXISTS: {source_path.exists()} | SOURCE PATH: {source_path}"
+            )
 
         output_path = output_dir / f"{source_path.stem}.{normalized_format.lower()}"
         if not output_path.exists():

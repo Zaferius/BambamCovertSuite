@@ -117,4 +117,5 @@ def download_video_result(job_id: str, db: Session = Depends(get_db)) -> FileRes
     if not output_path.exists():
         raise HTTPException(status_code=404, detail="Converted file is missing")
 
-    return FileResponse(path=output_path, filename=output_path.name)
+    clean_name = Path(job.original_filename).stem + "_converted" + output_path.suffix
+    return FileResponse(path=output_path, filename=clean_name)

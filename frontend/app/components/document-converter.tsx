@@ -146,7 +146,7 @@ export function DocumentConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Document file</span>
-          <input className="file-input" type="file" multiple onChange={handleFileChange} />
+          <input className="file-input" type="file" multiple accept=".pdf,.docx,.doc,.odt,.txt,.rtf" onChange={handleFileChange} />
         </label>
 
         <label className="field-group">

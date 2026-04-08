@@ -245,7 +245,7 @@ export function VideoConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Video file</span>
-          <input className="file-input" type="file" accept="video/*" multiple onChange={handleFileChange} />
+          <input className="file-input" type="file" accept=".mp4,.mov,.mkv,.avi,.webm,.gif" multiple onChange={handleFileChange} />
         </label>
 
         <div className="form-grid">

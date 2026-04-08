@@ -155,7 +155,7 @@ export function ImageConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Image file</span>
-          <input className="file-input" type="file" accept="image/*" multiple onChange={handleFileChange} />
+          <input className="file-input" type="file" accept=".png,.jpg,.jpeg,.webp,.tiff,.bmp,.gif" multiple onChange={handleFileChange} />
         </label>
 
         <div className="form-grid">

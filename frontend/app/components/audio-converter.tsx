@@ -46,6 +46,17 @@ function formatTime(s: number): string {
   return `${String(m).padStart(2, "0")}:${sec}`;
 }
 
+/** Parse "MM:SS.s" or plain seconds string → seconds, returns null on failure */
+function mmssToSeconds(value: string): number | null {
+  const trimmed = value.trim();
+  const colonMatch = trimmed.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if (colonMatch) {
+    return Number(colonMatch[1]) * 60 + Number(colonMatch[2]);
+  }
+  const plain = Number(trimmed);
+  return Number.isFinite(plain) ? plain : null;
+}
+
 
 export function AudioConverter() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -321,7 +332,7 @@ export function AudioConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Audio file</span>
-          <input className="file-input" type="file" accept="audio/*" multiple onChange={handleFileChange} />
+          <input className="file-input" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac" multiple onChange={handleFileChange} />
         </label>
 
         <div className="form-grid">
@@ -412,35 +423,33 @@ export function AudioConverter() {
               <span>Range: {trimStart.toFixed(2)}s → {trimEnd.toFixed(2)}s</span>
             </div>
 
-            {/* Manual inputs */}
+            {/* Manual inputs — MM:SS.s format */}
             <div className="trim-manual-row">
               <label className="field-group trim-manual-field">
-                <span>Start (manual)</span>
+                <span>Start (MM:SS.s)</span>
                 <input
-                  type="number"
-                  min={0}
-                  max={audioDuration}
-                  step="0.1"
-                  value={trimStart}
+                  key={trimStart}
+                  type="text"
+                  defaultValue={formatTime(trimStart)}
                   disabled={!trimEnabled}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setTrimStart(Number(Math.min(v, trimEnd - 0.1).toFixed(2)));
+                  placeholder="00:00.0"
+                  onBlur={(e) => {
+                    const s = mmssToSeconds(e.target.value);
+                    if (s !== null) setTrimStart(Number(Math.min(Math.max(s, 0), trimEnd - 0.1).toFixed(2)));
                   }}
                 />
               </label>
               <label className="field-group trim-manual-field">
-                <span>End (manual)</span>
+                <span>End (MM:SS.s)</span>
                 <input
-                  type="number"
-                  min={0}
-                  max={audioDuration}
-                  step="0.1"
-                  value={trimEnd}
+                  key={trimEnd}
+                  type="text"
+                  defaultValue={formatTime(trimEnd)}
                   disabled={!trimEnabled}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setTrimEnd(Number(Math.max(v, trimStart + 0.1).toFixed(2)));
+                  placeholder="00:00.0"
+                  onBlur={(e) => {
+                    const s = mmssToSeconds(e.target.value);
+                    if (s !== null) setTrimEnd(Number(Math.max(Math.min(s, audioDuration), trimStart + 0.1).toFixed(2)));
                   }}
                 />
               </label>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 
 import { authFetch } from "../lib/auth-fetch";
+import { useAuth } from "../lib/auth-context";
 
 type JobItem = {
   id: string;
@@ -18,6 +19,7 @@ type JobItem = {
 
 
 export function JobsDashboard() {
+  const { user } = useAuth();
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
 
@@ -47,7 +49,8 @@ export function JobsDashboard() {
 
   const triggerCleanup = async () => {
     try {
-      const response = await authFetch(`${apiBaseUrl}/admin/cleanup?older_than_hours=0`, {
+      const endpoint = user?.is_admin ? `${apiBaseUrl}/admin/cleanup?older_than_hours=0` : `${apiBaseUrl}/jobs/cleanup?older_than_hours=0`;
+      const response = await authFetch(endpoint, {
         method: "POST",
       });
 
@@ -73,18 +76,33 @@ export function JobsDashboard() {
         </div>
 
         <div style={{ display: "flex", gap: "10px" }}>
+          {user?.is_admin && (
+            <button className="primary-button" style={{ background: "transparent", borderColor: "#f87171", color: "#f87171" }} type="button" onClick={async () => {
+              if (!confirm("Are you sure you want to stop ALL active jobs for ALL users?")) return;
+              try {
+                const response = await authFetch(`${apiBaseUrl}/admin/stop-all-jobs`, { method: "POST" });
+                const payload = await response.json();
+                setCleanupMessage(payload.message || "All jobs stopped.");
+                await loadJobs();
+              } catch(e) {
+                setCleanupMessage("Failed to stop all jobs.");
+              }
+            }}>
+              Stop all jobs
+            </button>
+          )}
           <button className="primary-button" style={{ background: "transparent", borderColor: "#f87171", color: "#f87171" }} type="button" onClick={async () => {
-            if (!confirm("Are you sure you want to stop all active jobs?")) return;
+            if (!confirm("Are you sure you want to stop YOUR active jobs?")) return;
             try {
-              const response = await authFetch(`${apiBaseUrl}/admin/stop-all-jobs`, { method: "POST" });
+              const response = await authFetch(`${apiBaseUrl}/jobs/stop`, { method: "POST" });
               const payload = await response.json();
-              setCleanupMessage(payload.message || "Jobs stopped.");
+              setCleanupMessage(payload.message || "Your jobs stopped.");
               await loadJobs();
             } catch(e) {
               setCleanupMessage("Failed to stop jobs.");
             }
           }}>
-            Stop all jobs
+            Stop jobs
           </button>
           <button className="primary-button" type="button" onClick={triggerCleanup}>
             Cleanup finished jobs

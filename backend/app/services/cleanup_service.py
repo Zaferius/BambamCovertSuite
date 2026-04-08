@@ -3,6 +3,8 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from sqlalchemy import select
+from app.models.job import Job
 from app.core.config import get_settings
 from app.services.jobs import JobService
 
@@ -13,15 +15,24 @@ class CleanupService:
         self.settings = get_settings()
         self.job_service = JobService(db)
 
-    def cleanup_finished_jobs(self, *, older_than_hours: int = 24) -> int:
-        threshold = datetime.utcnow() - timedelta(hours=older_than_hours)
-        jobs = self.job_service.list_jobs()
+    def cleanup_finished_jobs(self, older_than_hours: int = 24, user_id: str | None = None) -> int:
+        """
+        Remove completed or failed jobs older than X hours.
+        If user_id is provided, only removes jobs for that user.
+        Deletes files (outputs, bundles) and the database records.
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=older_than_hours)
+        query = select(Job).where(
+            Job.status.in_(["completed", "failed"]),
+            Job.updated_at <= cutoff
+        )
+        if user_id:
+            query = query.where(Job.user_id == user_id)
+            
+        jobs_to_delete = self.db.scalars(query).all()
         deleted = 0
 
-        for job in jobs:
-            if job.updated_at >= threshold or job.status not in {"completed", "failed"}:
-                continue
-
+        for job in jobs_to_delete:
             for path_value in [job.input_path, job.output_path]:
                 if not path_value:
                     continue

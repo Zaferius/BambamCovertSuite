@@ -53,6 +53,7 @@ async def create_batch_image_job(
         original_filename=f"{len(files)} files",
         stored_filename=paths[0].name,
         input_path="\n".join(str(path) for path in paths),
+        user_id=current_user.id,
     )
 
     enqueue_job(run_batch_image_conversion, job.id, [str(path) for path in paths], normalized_format, quality, retry_max=1)
@@ -90,6 +91,7 @@ async def create_batch_video_job(
         original_filename=f"{len(files)} files",
         stored_filename=paths[0].name,
         input_path="\n".join(str(path) for path in paths),
+        user_id=current_user.id,
     )
 
     enqueue_job(
@@ -132,6 +134,7 @@ async def create_batch_document_job(
         original_filename=f"{len(files)} files",
         stored_filename=paths[0].name,
         input_path="\n".join(str(path) for path in paths),
+        user_id=current_user.id,
     )
 
     enqueue_job(
@@ -173,6 +176,7 @@ async def create_batch_audio_job(
         original_filename=f"{len(files)} files",
         stored_filename=paths[0].name,
         input_path="\n".join(str(path) for path in paths),
+        user_id=current_user.id,
     )
 
     enqueue_job(run_batch_audio_conversion, job.id, [str(path) for path in paths], normalized_format, bitrate, retry_max=1)
@@ -187,6 +191,7 @@ async def create_batch_rename_job(
     start_index: int = Query(default=1, ge=0),
     keep_extension: bool = Query(default=True),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> BatchJobCreateResponse:
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
@@ -208,6 +213,7 @@ async def create_batch_rename_job(
         original_filename=f"{len(files)} files",
         stored_filename=paths[0].name,
         input_path="\n".join(str(path) for path in paths),
+        user_id=current_user.id,
     )
 
     enqueue_job(

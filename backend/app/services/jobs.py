@@ -15,8 +15,10 @@ class JobService:
         original_filename: str,
         stored_filename: str,
         input_path: str,
+        user_id: str | None = None,
     ) -> Job:
         job = Job(
+            user_id=user_id,
             job_type=job_type,
             status="queued",
             original_filename=original_filename,
@@ -29,8 +31,11 @@ class JobService:
         self.db.refresh(job)
         return job
 
-    def list_jobs(self) -> list[Job]:
-        return list(self.db.scalars(select(Job).order_by(Job.created_at.desc())).all())
+    def list_jobs(self, user_id: str | None = None, is_admin: bool = False) -> list[Job]:
+        query = select(Job)
+        if not is_admin and user_id:
+            query = query.filter(Job.user_id == user_id)
+        return list(self.db.scalars(query.order_by(Job.created_at.desc())).all())
 
     def get_job(self, job_id: str) -> Job | None:
         return self.db.get(Job, job_id)

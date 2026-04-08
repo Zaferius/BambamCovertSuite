@@ -29,12 +29,20 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+from sqlalchemy import text
+
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
     
     db = SessionLocal()
     try:
+        try:
+            db.execute(text("ALTER TABLE jobs ADD COLUMN user_id VARCHAR(36)"))
+            db.commit()
+        except Exception:
+            db.rollback()
+
         if db.query(User).count() == 0:
             admin_user = User(
                 id=uuid.uuid4().hex,

@@ -15,6 +15,7 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     job_type: Mapped[str] = mapped_column(String(50), index=True)
     status: Mapped[str] = mapped_column(String(20), default="queued", index=True)
     original_filename: Mapped[str] = mapped_column(String(255))

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, SyntheticEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, SyntheticEvent, useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
@@ -8,6 +8,22 @@ import { authFetch } from "../lib/auth-fetch";
 import { useAction } from "../lib/action-context";
 
 const videoFormats = ["MP4", "AVI", "MKV", "MOV", "WMV", "FLV", "WEBM", "GIF"] as const;
+
+function formatTime(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = (s % 60).toFixed(1).padStart(4, "0");
+  return `${String(m).padStart(2, "0")}:${sec}`;
+}
+
+function mmssToSeconds(value: string): number | null {
+  const trimmed = value.trim();
+  const colonMatch = trimmed.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if (colonMatch) {
+    return Number(colonMatch[1]) * 60 + Number(colonMatch[2]);
+  }
+  const plain = Number(trimmed);
+  return Number.isFinite(plain) ? plain : null;
+}
 
 type VideoConversionResponse = {
   job_id: string;
@@ -49,6 +65,10 @@ export function VideoConverter() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<VideoConversionResponse | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
+
+  const [isDragging, setIsDragging] = useState<"start" | "end" | null>(null);
+  const waveformAreaRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const { setAction } = useAction();
 
@@ -106,26 +126,58 @@ export function VideoConverter() {
     setTrimEnd(safeDuration);
   };
 
-  const handleTrimStartChange = (value: number) => {
-    const safeStart = Number.isFinite(value) ? value : 0;
-    const nextStart = Math.max(0, Math.min(safeStart, Math.max(0, trimEnd - 0.1)));
-    setTrimStart(Number(nextStart.toFixed(2)));
-  };
+  const xToTime = useCallback(
+    (clientX: number): number => {
+      const area = waveformAreaRef.current;
+      if (!area || videoDuration <= 0) return 0;
+      const rect = area.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
+      return Number((ratio * videoDuration).toFixed(2));
+    },
+    [videoDuration],
+  );
 
-  const handleTrimEndChange = (value: number) => {
-    const floor = trimStart + 0.1;
-    const safeEnd = Number.isFinite(value) ? value : floor;
-    const nextEnd = Math.max(floor, Math.min(safeEnd, videoDuration || safeEnd));
-    setTrimEnd(Number(nextEnd.toFixed(2)));
-  };
+  useEffect(() => {
+    if (!isDragging) return;
 
-  const handleTrimStartManual = (value: number) => {
-    handleTrimStartChange(value);
-  };
+    const onMouseMove = (e: MouseEvent) => {
+      const t = xToTime(e.clientX);
+      if (isDragging === "start") {
+        const newStart = Math.min(t, trimEnd - 0.1);
+        setTrimStart(newStart);
+        if (videoRef.current) videoRef.current.currentTime = newStart;
+      } else {
+        const newEnd = Math.max(t, trimStart + 0.1);
+        setTrimEnd(newEnd);
+        if (videoRef.current) videoRef.current.currentTime = newEnd;
+      }
+    };
+    const onMouseUp = () => setIsDragging(null);
 
-  const handleTrimEndManual = (value: number) => {
-    handleTrimEndChange(value);
-  };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDragging, xToTime, trimStart, trimEnd]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !trimEnabled) return;
+
+    const onTimeUpdate = () => {
+      if (video.currentTime >= trimEnd) {
+        video.pause();
+        video.currentTime = trimStart;
+      } else if (video.currentTime < trimStart) {
+        video.currentTime = trimStart;
+      }
+    };
+
+    video.addEventListener("timeupdate", onTimeUpdate);
+    return () => video.removeEventListener("timeupdate", onTimeUpdate);
+  }, [trimStart, trimEnd, trimEnabled]);
 
   const trimStartPercent = videoDuration > 0 ? (trimStart / videoDuration) * 100 : 0;
   const trimEndPercent = videoDuration > 0 ? (trimEnd / videoDuration) * 100 : 100;
@@ -306,7 +358,48 @@ export function VideoConverter() {
               </label>
             </div>
 
-            <video className="trim-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+            <video ref={videoRef} className="trim-preview" src={previewUrl} controls preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+
+            <div
+              ref={waveformAreaRef}
+              className="waveform-area"
+              style={{ userSelect: "none", height: "60px", marginTop: "12px", borderRadius: "8px" }}
+            >
+              <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 10px)", opacity: 0.5 }} />
+
+              <div className="waveform-mask" style={{ left: 0, width: `${trimStartPercent}%` }} />
+              <div className="waveform-mask" style={{ right: 0, width: `${100 - trimEndPercent}%` }} />
+
+              <div
+                className="waveform-handle"
+                style={{ left: `${trimStartPercent}%`, opacity: trimEnabled ? 1 : 0.4 }}
+                onMouseDown={(e) => {
+                  if (!trimEnabled) return;
+                  e.preventDefault();
+                  setIsDragging("start");
+                }}
+              >
+                <div className="waveform-handle-grip" />
+              </div>
+
+              <div
+                className="waveform-handle"
+                style={{ left: `${trimEndPercent}%`, opacity: trimEnabled ? 1 : 0.4 }}
+                onMouseDown={(e) => {
+                  if (!trimEnabled) return;
+                  e.preventDefault();
+                  setIsDragging("end");
+                }}
+              >
+                <div className="waveform-handle-grip" />
+              </div>
+            </div>
+
+            <div className="waveform-timestamps" style={{ marginBottom: "12px" }}>
+              <span>{formatTime(trimStart)}</span>
+              <span className="waveform-time-center">{formatTime(videoDuration)}</span>
+              <span>{formatTime(trimEnd)}</span>
+            </div>
 
             <div className="trim-meta-row">
               <span>Duration: {videoDuration > 0 ? `${videoDuration.toFixed(2)}s` : "loading..."}</span>
@@ -317,73 +410,46 @@ export function VideoConverter() {
 
             <div className="field-group">
               <span>Trim range</span>
-              <div className="dual-range-wrapper">
-                <div className="dual-range-base" />
-                <div
-                  className="dual-range-selected"
-                  style={{
-                    left: `${trimStartPercent}%`,
-                    width: `${Math.max(0, trimEndPercent - trimStartPercent)}%`,
-                  }}
-                />
-
-                <input
-                  className="dual-range-input dual-range-input-start"
-                  type="range"
-                  min={0}
-                  max={videoDuration > 0 ? videoDuration : 0}
-                  step="0.1"
-                  value={trimStart}
-                  disabled={!trimEnabled || videoDuration <= 0}
-                  onChange={(event) => handleTrimStartChange(Number(event.target.value))}
-                />
-
-                <input
-                  className="dual-range-input dual-range-input-end"
-                  type="range"
-                  min={0}
-                  max={videoDuration > 0 ? videoDuration : 0}
-                  step="0.1"
-                  value={trimEnd}
-                  disabled={!trimEnabled || videoDuration <= 0}
-                  onChange={(event) => handleTrimEndChange(Number(event.target.value))}
-                />
-              </div>
-
-              <div className="trim-value-row">
-                <span>Start: {trimStart.toFixed(2)}s</span>
-                <span>End: {trimEnd.toFixed(2)}s</span>
-              </div>
-
               <div className="trim-manual-row">
                 <label className="field-group trim-manual-field">
-                  <span>Start (manual)</span>
+                  <span>Start (MM:SS.s)</span>
                   <input
-                    type="number"
-                    min={0}
-                    max={videoDuration > 0 ? videoDuration : undefined}
-                    step="0.1"
-                    value={trimStart}
+                    key={trimStart}
+                    type="text"
+                    defaultValue={formatTime(trimStart)}
                     disabled={!trimEnabled || videoDuration <= 0}
-                    onChange={(event) => handleTrimStartManual(Number(event.target.value))}
+                    placeholder="00:00.0"
+                    onBlur={(e) => {
+                      const s = mmssToSeconds(e.target.value);
+                      if (s !== null) {
+                        const newStart = Number(Math.min(Math.max(s, 0), trimEnd - 0.1).toFixed(2));
+                        setTrimStart(newStart);
+                        if (videoRef.current) videoRef.current.currentTime = newStart;
+                      }
+                    }}
                   />
                 </label>
 
                 <label className="field-group trim-manual-field">
-                  <span>End (manual)</span>
+                  <span>End (MM:SS.s)</span>
                   <input
-                    type="number"
-                    min={0}
-                    max={videoDuration > 0 ? videoDuration : undefined}
-                    step="0.1"
-                    value={trimEnd}
+                    key={trimEnd}
+                    type="text"
+                    defaultValue={formatTime(trimEnd)}
                     disabled={!trimEnabled || videoDuration <= 0}
-                    onChange={(event) => handleTrimEndManual(Number(event.target.value))}
+                    placeholder="00:00.0"
+                    onBlur={(e) => {
+                      const s = mmssToSeconds(e.target.value);
+                      if (s !== null) {
+                        const newEnd = Number(Math.max(Math.min(s, videoDuration), trimStart + 0.1).toFixed(2));
+                        setTrimEnd(newEnd);
+                        if (videoRef.current) videoRef.current.currentTime = newEnd;
+                      }
+                    }}
                   />
                 </label>
               </div>
             </div>
-
           </section>
         ) : null}
 

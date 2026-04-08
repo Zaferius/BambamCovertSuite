@@ -6,6 +6,10 @@ from pathlib import Path
 
 DOCUMENT_TARGET_FORMATS = {"PDF", "DOCX", "ODT", "TXT"}
 
+UNSUPPORTED_CONVERSIONS: dict[str, set[str]] = {
+    ".pdf": {"DOCX", "PDF"},
+}
+
 LIBREOFFICE_FILTER_MAP = {
     "DOCX": 'docx:"MS Word 2007 XML"',
     "PDF": 'pdf:"writer_pdf_Export"',
@@ -21,6 +25,14 @@ class DocumentConversionService:
         if normalized_format not in DOCUMENT_TARGET_FORMATS:
             raise ValueError(f"Unsupported document target format: {target_format}")
 
+        source_ext = source_path.suffix.lower()
+        blocked = UNSUPPORTED_CONVERSIONS.get(source_ext, set())
+        if normalized_format in blocked:
+            raise ValueError(
+                f"Converting {source_ext.upper()} to {normalized_format} is not supported. "
+                f"PDF files can be converted to: ODT, TXT."
+            )
+
         output_dir.mkdir(parents=True, exist_ok=True)
 
         safe_name = f"bambam_doc_{uuid.uuid4().hex}{source_path.suffix}"
@@ -28,6 +40,9 @@ class DocumentConversionService:
         shutil.copy2(source_path, safe_source)
 
         convert_to_arg = LIBREOFFICE_FILTER_MAP.get(normalized_format, normalized_format.lower())
+
+        tmp_out_dir = Path("/tmp") / f"bambam_out_{uuid.uuid4().hex}"
+        tmp_out_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             cmd = [
@@ -37,7 +52,7 @@ class DocumentConversionService:
                 "--convert-to",
                 convert_to_arg,
                 "--outdir",
-                str(output_dir),
+                str(tmp_out_dir),
                 str(safe_source),
             ]
 
@@ -48,6 +63,7 @@ class DocumentConversionService:
                 or "source file could not be loaded" in result.stdout
                 or "no export filter" in result.stderr
                 or "no export filter" in result.stdout
+                or "Please verify input parameters" in result.stderr
             ):
                 raise RuntimeError(
                     f"LibreOffice conversion failed.\n"
@@ -56,15 +72,16 @@ class DocumentConversionService:
                     f"STDERR: {result.stderr}"
                 )
 
-            converted_temp = output_dir / f"{safe_source.stem}.{normalized_format.lower()}"
+            converted_tmp = tmp_out_dir / f"{safe_source.stem}.{normalized_format.lower()}"
             final_output = output_dir / f"{source_path.stem}.{normalized_format.lower()}"
 
-            if not converted_temp.exists():
+            if not converted_tmp.exists():
                 error_msg = f"Converted document file was not produced.\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
                 raise RuntimeError(error_msg)
 
-            converted_temp.rename(final_output)
+            shutil.move(str(converted_tmp), str(final_output))
         finally:
             safe_source.unlink(missing_ok=True)
+            shutil.rmtree(tmp_out_dir, ignore_errors=True)
 
         return final_output

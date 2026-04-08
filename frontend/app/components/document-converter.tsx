@@ -6,6 +6,15 @@ import { ConversionLoader } from "./conversion-loader";
 
 const documentFormats = ["PDF", "DOCX", "ODT", "TXT"] as const;
 
+const formatsBySource: Record<string, string[]> = {
+  pdf:  ["ODT", "TXT"],
+  docx: ["PDF", "ODT", "TXT"],
+  doc:  ["PDF", "ODT", "TXT"],
+  odt:  ["PDF", "DOCX", "TXT"],
+  rtf:  ["PDF", "DOCX", "ODT", "TXT"],
+  txt:  ["PDF", "DOCX", "ODT"],
+};
+
 type DocumentConversionResponse = {
   job_id: string;
   status: string;
@@ -38,6 +47,11 @@ export function DocumentConverter() {
     [],
   );
 
+  const availableFormats = useMemo(() => {
+    const ext = (selectedFile?.name.split(".").pop() ?? "").toLowerCase();
+    return formatsBySource[ext] ?? documentFormats.slice();
+  }, [selectedFile]);
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     const file = files[0] ?? null;
@@ -46,6 +60,11 @@ export function DocumentConverter() {
     setErrorMessage(null);
     setResult(null);
     setJobStatus(null);
+    const ext = (file?.name.split(".").pop() ?? "").toLowerCase();
+    const allowed = formatsBySource[ext] ?? documentFormats.slice();
+    if (!allowed.includes(targetFormat)) {
+      setTargetFormat(allowed[0] ?? "PDF");
+    }
   };
 
   const pollJobStatus = async (jobId: string, isBatch: boolean) => {
@@ -152,7 +171,7 @@ export function DocumentConverter() {
         <label className="field-group">
           <span>Target format</span>
           <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
-            {documentFormats.map((format) => (
+            {availableFormats.map((format) => (
               <option key={format} value={format}>
                 {format}
               </option>

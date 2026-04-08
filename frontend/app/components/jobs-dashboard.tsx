@@ -44,13 +44,22 @@ export function JobsDashboard() {
   }, []);
 
   const triggerCleanup = async () => {
-    const response = await fetch(`${apiBaseUrl}/admin/cleanup?older_than_hours=24`, {
-      method: "POST",
-    });
+    try {
+      const response = await fetch(`${apiBaseUrl}/admin/cleanup?older_than_hours=24`, {
+        method: "POST",
+      });
 
-    const payload = (await response.json()) as { deleted_jobs?: number };
-    setCleanupMessage(`Cleanup removed ${payload.deleted_jobs ?? 0} finished jobs.`);
-    await loadJobs();
+      if (!response.ok) {
+        setCleanupMessage(`Cleanup failed: server returned ${response.status}`);
+        return;
+      }
+
+      const payload = (await response.json()) as { deleted_jobs?: number };
+      setCleanupMessage(`Cleanup removed ${payload.deleted_jobs ?? 0} finished jobs.`);
+      await loadJobs();
+    } catch (err) {
+      setCleanupMessage(`Cleanup failed: ${err instanceof Error ? err.message : "network error"}`);
+    }
   };
 
   return (

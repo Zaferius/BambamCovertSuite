@@ -2,6 +2,8 @@
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { ConversionLoader } from "./conversion-loader";
+import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
+import { distributeProgress, xhrPost } from "../lib/xhr-post";
 
 
 const documentFormats = ["PDF", "DOCX", "ODT", "TXT"] as const;
@@ -38,6 +40,7 @@ export function DocumentConverter() {
   const [targetFormat, setTargetFormat] = useState<string>("PDF");
   const [isBatchResult, setIsBatchResult] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<FileUploadItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<DocumentConversionResponse | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
@@ -119,6 +122,7 @@ export function DocumentConverter() {
     setResult(null);
     setJobStatus(null);
     setIsBatchResult(isBatch);
+    setUploadProgress(selectedFiles.map((f) => ({ name: f.name, pct: 0 })));
 
     const formData = new FormData();
     if (isBatch) {
@@ -133,10 +137,12 @@ export function DocumentConverter() {
       const query = new URLSearchParams({ target_format: targetFormat });
 
       const endpoint = isBatch ? "/batch/document/jobs" : "/document/jobs";
-      const response = await fetch(`${apiBaseUrl}${endpoint}?${query.toString()}`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await xhrPost(
+        `${apiBaseUrl}${endpoint}?${query.toString()}`,
+        formData,
+        (pct) => setUploadProgress(distributeProgress(selectedFiles, pct)),
+      );
+      setUploadProgress([]);
 
       const payload = (await response.json()) as DocumentConversionResponse | { detail?: string };
 
@@ -184,7 +190,8 @@ export function DocumentConverter() {
         </button>
       </form>
 
-      <ConversionLoader isVisible={isSubmitting} jobStatus={jobStatus} />
+      <UploadProgressPanel files={uploadProgress} />
+      <ConversionLoader isVisible={isSubmitting && uploadProgress.length === 0} jobStatus={jobStatus} />
 
       {selectedFiles.length > 1 ? (
         <p className="selection-hint">

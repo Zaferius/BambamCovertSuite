@@ -2,6 +2,8 @@
 
 import { ChangeEvent, FormEvent, SyntheticEvent, useEffect, useMemo, useState } from "react";
 import { ConversionLoader } from "./conversion-loader";
+import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
+import { distributeProgress, xhrPost } from "../lib/xhr-post";
 
 
 const videoFormats = ["MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"] as const;
@@ -37,6 +39,7 @@ export function VideoConverter() {
   const [width, setWidth] = useState<string>("1920");
   const [height, setHeight] = useState<string>("1080");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<FileUploadItem[]>([]);
   const [trimEnabled, setTrimEnabled] = useState(false);
   const [trimStart, setTrimStart] = useState<number>(0);
   const [trimEnd, setTrimEnd] = useState<number>(0);
@@ -184,6 +187,7 @@ export function VideoConverter() {
     setResult(null);
     setJobStatus(null);
     setIsBatchResult(isBatch);
+    setUploadProgress(selectedFiles.map((f) => ({ name: f.name, pct: 0 })));
 
     const formData = new FormData();
     if (isBatch) {
@@ -213,10 +217,12 @@ export function VideoConverter() {
       }
 
       const endpoint = isBatch ? "/batch/video/jobs" : "/video/jobs";
-      const response = await fetch(`${apiBaseUrl}${endpoint}?${query.toString()}`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await xhrPost(
+        `${apiBaseUrl}${endpoint}?${query.toString()}`,
+        formData,
+        (pct) => setUploadProgress(distributeProgress(selectedFiles, pct)),
+      );
+      setUploadProgress([]);
 
       const payload = (await response.json()) as VideoConversionResponse | { detail?: string };
 
@@ -383,7 +389,8 @@ export function VideoConverter() {
         </button>
       </form>
 
-      <ConversionLoader isVisible={isSubmitting} jobStatus={jobStatus} />
+      <UploadProgressPanel files={uploadProgress} />
+      <ConversionLoader isVisible={isSubmitting && uploadProgress.length === 0} jobStatus={jobStatus} />
 
       {selectedFiles.length > 1 ? (
         <p className="selection-hint">

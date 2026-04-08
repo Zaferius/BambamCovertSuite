@@ -7,6 +7,8 @@
 import type { ChangeEvent, FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConversionLoader } from "./conversion-loader";
+import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
+import { distributeProgress, xhrPost } from "../lib/xhr-post";
 
 
 const audioFormats = ["MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"] as const;
@@ -65,6 +67,7 @@ export function AudioConverter() {
   const [bitrate, setBitrate] = useState<string>("192k");
   const [isBatchResult, setIsBatchResult] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<FileUploadItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<AudioConversionResponse | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
@@ -280,6 +283,7 @@ export function AudioConverter() {
     setResult(null);
     setJobStatus(null);
     setIsBatchResult(isBatch);
+    setUploadProgress(selectedFiles.map((f) => ({ name: f.name, pct: 0 })));
 
     const formData = new FormData();
     if (isBatch) {
@@ -298,10 +302,12 @@ export function AudioConverter() {
       }
 
       const endpoint = isBatch ? "/batch/audio/jobs" : "/audio/jobs";
-      const response = await fetch(`${apiBaseUrl}${endpoint}?${query.toString()}`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await xhrPost(
+        `${apiBaseUrl}${endpoint}?${query.toString()}`,
+        formData,
+        (pct) => setUploadProgress(distributeProgress(selectedFiles, pct)),
+      );
+      setUploadProgress([]);
 
       const payload = (await response.json()) as AudioCreateResponse | ApiErrorResponse;
 
@@ -466,7 +472,8 @@ export function AudioConverter() {
         </button>
       </form>
 
-      <ConversionLoader isVisible={isSubmitting} jobStatus={jobStatus} />
+      <UploadProgressPanel files={uploadProgress} />
+      <ConversionLoader isVisible={isSubmitting && uploadProgress.length === 0} jobStatus={jobStatus} />
 
       {selectedFiles.length > 1 ? (
         <p className="selection-hint">

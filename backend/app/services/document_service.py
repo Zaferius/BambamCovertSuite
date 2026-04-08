@@ -11,10 +11,10 @@ UNSUPPORTED_CONVERSIONS: dict[str, set[str]] = {
 }
 
 LIBREOFFICE_FILTER_MAP = {
-    "DOCX": 'docx:"MS Word 2007 XML"',
-    "PDF": 'pdf:"writer_pdf_Export"',
+    "DOCX": "docx:MS Word 2007 XML",
+    "PDF": "pdf:writer_pdf_Export",
     "ODT": "odt",
-    "TXT": 'txt:"Text (encoded)"',
+    "TXT": "txt:Text (encoded)",
 }
 
 

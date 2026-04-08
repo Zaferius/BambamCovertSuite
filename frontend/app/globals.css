@@ -624,6 +624,119 @@ h1 {
   text-align: center;
 }
 
+/* ── Upload progress panel ─────────────────────────────────────────────────── */
+
+.upload-progress-panel {
+  border: 1px solid rgba(180, 77, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(14, 5, 22, 0.85);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.upload-progress-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(30, 10, 48, 0.7);
+  border: none;
+  border-bottom: 1px solid rgba(180, 77, 255, 0.15);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.88rem;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.upload-progress-toggle:hover {
+  background: rgba(45, 15, 70, 0.7);
+}
+
+.upload-progress-toggle-icon {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.upload-progress-overall-pct {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.upload-progress-overall-track {
+  width: 80px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.upload-progress-overall-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.upload-progress-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 14px 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.upload-progress-item {
+  display: grid;
+  gap: 4px;
+}
+
+.upload-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.upload-progress-name {
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80%;
+}
+
+.upload-progress-pct {
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.upload-progress-track {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7f2fff, #b44dff);
+  transition: width 0.15s ease;
+}
+
+.upload-progress-fill--done {
+  background: linear-gradient(90deg, #00b86a, #00e87a);
+}
+
 /* ── Conversion loader ─────────────────────────────────────────────────────── */
 
 @keyframes spin {

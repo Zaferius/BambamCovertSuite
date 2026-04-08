@@ -212,30 +212,125 @@ The desktop app remains in the repository, but ongoing migration work is focused
 
 ## 🤖 Telegram Bot
 
-A Telegram bot service is available under `[bot/](bot/)` as an additional interface to the conversion backend.
+A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the Bambam backend via Telegram messaging.
 
-### Features (Phase 1)
-- Send any file → bot detects type automatically (image, audio, video, document)
-- Inline keyboard presents available conversion options
-- Polls backend job queue and returns the converted file when done
-- Supports: Images (PNG/JPG/WEBP), Audio (MP3/WAV), Video (MP4), Documents (PDF)
+### 🎯 Phase 1: Deterministic File Conversion (AI-less)
 
-### Setup
+**Features:**
+- Auto-detects file type from MIME type and file extension (image/audio/video/document)
+- Shows inline keyboard with available conversion options
+- Polls backend job queue and returns converted file when done
+- Single-worker compatible, no AI or natural language parsing
 
-1. Create a bot via [@BotFather](https://t.me/BotFather) and get a token
-2. Add to your `.env` file (project root):
+**Supported Conversions:**
+| Type | Formats |
+|------|---------|
+| Image | PNG, JPG, WEBP |
+| Audio | MP3, WAV |
+| Video | MP4 |
+| Document | PDF |
+
+### 📋 Quick Start
+
+1. **Create a Telegram bot** via [@BotFather](https://t.me/BotFather)
+   - Send `/newbot` and follow prompts
+   - Copy the API token
+
+2. **Configure environment** — add to project root `.env` file:
 ```env
-TELEGRAM_BOT_TOKEN=your_token_here
+TELEGRAM_BOT_TOKEN=<your_token_from_botfather>
 BOT_API_USERNAME=admin
 BOT_API_PASSWORD=bambam123
 ```
-3. Start with Docker Compose (bot service is included automatically):
+
+3. **Start the bot** with Docker Compose:
 ```bash
 docker compose up --build
 ```
 
-The bot authenticates against the FastAPI backend using `BOT_API_USERNAME` / `BOT_API_PASSWORD`.
-These default to the admin credentials — create a dedicated bot user via the admin panel for production use.
+The bot service will start automatically and begin polling Telegram for incoming messages.
+
+### 🔧 Architecture
+
+```
+User sends file to Telegram Bot
+        ↓
+File Type Detection (MIME + extension)
+        ↓
+Inline Keyboard (conversion options)
+        ↓
+User selects option
+        ↓
+Bot downloads file from Telegram
+        ↓
+Bot uploads to FastAPI backend (/image/jobs, /audio/jobs, etc.)
+        ↓
+Bot polls job status every 3 seconds
+        ↓
+Job completes → Bot downloads result
+        ↓
+Bot sends file back to user
+```
+
+**Services:**
+- `[bot/handlers/](bot/handlers/)` — Command & message handlers (start, file upload, keyboard callbacks)
+- `[bot/services/](bot/services/)` — File detection, keyboard building, session store
+- `[bot/api/client.py](bot/api/client.py)` — FastAPI integration (auth, job creation, polling, download)
+
+### 🔐 Authentication
+
+The bot logs in to the FastAPI backend using `BOT_API_USERNAME` / `BOT_API_PASSWORD` (default: admin credentials).
+
+**For production:**
+1. Create a dedicated bot user via the web app admin panel
+2. Update `BOT_API_USERNAME` and `BOT_API_PASSWORD` in your deployment environment
+3. Rotate default admin credentials
+
+### 🚀 Environment Variables
+
+**Required:**
+- `TELEGRAM_BOT_TOKEN` — API token from [@BotFather](https://t.me/BotFather)
+
+**Optional (defaults shown):**
+- `API_BASE_URL=http://api:8000` — Backend API endpoint
+- `BOT_API_USERNAME=admin` — Backend user for bot login
+- `BOT_API_PASSWORD=bambam123` — Backend password for bot login
+
+### 🐛 Troubleshooting
+
+**Bot doesn't respond to files:**
+- Verify `TELEGRAM_BOT_TOKEN` is set and valid
+- Check bot container logs: `docker logs bambam-bot`
+- Ensure FastAPI backend is healthy: `docker logs bambam-api`
+
+**"Session expired" error:**
+- Bot session times out if no file is selected for >5 minutes
+- Solution: Send the file again
+
+**API authentication fails:**
+- Verify `BOT_API_USERNAME` / `BOT_API_PASSWORD` match a valid backend user
+- Check if that user is active in the admin panel
+
+**Job takes a long time:**
+- Large files or slow conversion triggers longer polling
+- Default timeout is 10 minutes per job
+- Check backend worker status: `docker logs bambam-worker`
+
+### 🔮 Future Phases (Not Yet Implemented)
+
+**Phase 2: Parameter Customization**
+- Allow users to select bitrate, trim points, resize dimensions via the chat
+- Interactive parameter forms via inline keyboards
+
+**Phase 3: Natural Language Intent Parsing**
+- Accept commands like "convert this to MP3 at 256kbps"
+- GPT-based intent parsing with function calling (optional)
+
+**Phase 4: Advanced Features**
+- Background removal (rembg)
+- Batch file processing
+- Conversion history per user
+- Usage analytics
 
 ## 🧪 Testing
 

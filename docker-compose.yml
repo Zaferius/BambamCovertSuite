@@ -17,10 +17,6 @@ services:
     labels:
       - "traefik.http.middlewares.bambam-api-bodysize.buffering.maxRequestBodyBytes=268435456"
       - "traefik.http.middlewares.bambam-api-bodysize.buffering.memRequestBodyBytes=33554432"
-      - "traefik.http.serversTransports.bambam-api-transport.forwardingTimeouts.responseHeaderTimeout=600s"
-      - "traefik.http.serversTransports.bambam-api-transport.forwardingTimeouts.idleConnTimeout=600s"
-      - "traefik.http.serversTransports.bambam-api-transport.forwardingTimeouts.dialTimeout=60s"
-      - "traefik.http.services.bambam-api.loadbalancer.serversTransport=bambam-api-transport"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s

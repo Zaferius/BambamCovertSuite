@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg libreoffice-core libreoffice-writer \
+    && apt-get install -y --no-install-recommends ffmpeg libreoffice-core libreoffice-writer libreoffice-draw libreoffice-impress libreoffice-calc \
     && rm -rf /var/lib/apt/lists/*
 
 RUN ffmpeg -version \

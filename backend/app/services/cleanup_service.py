@@ -14,7 +14,7 @@ class CleanupService:
         self.job_service = JobService(db)
 
     def cleanup_finished_jobs(self, *, older_than_hours: int = 24) -> int:
-        threshold = datetime.now(timezone.utc) - timedelta(hours=older_than_hours)
+        threshold = datetime.utcnow() - timedelta(hours=older_than_hours)
         jobs = self.job_service.list_jobs()
         deleted = 0
 
@@ -43,7 +43,7 @@ class CleanupService:
         return deleted
 
     def cleanup_stale_pending_files(self, *, older_than_hours: int = 6) -> int:
-        threshold = datetime.now(timezone.utc) - timedelta(hours=older_than_hours)
+        threshold = datetime.utcnow() - timedelta(hours=older_than_hours)  # noqa: DTZ003
         jobs = self.job_service.list_jobs()
         cleaned = 0
 

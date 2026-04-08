@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
+import { authFetch } from "../lib/auth-fetch";
 
 
 const imageFormats = ["PNG", "JPG", "JPEG", "WEBP", "TIFF", "BMP", "GIF"] as const;
@@ -60,9 +61,7 @@ export function ImageConverter() {
       await new Promise((resolve) => window.setTimeout(resolve, 1000));
 
       const statusPath = isBatch ? `/batch/jobs/${jobId}` : `/image/jobs/${jobId}`;
-      const response = await fetch(`${apiBaseUrl}${statusPath}`, {
-        cache: "no-store",
-      });
+      const response = await authFetch(`${apiBaseUrl}${statusPath}`, { cache: "no-store" });
 
       const payload = (await response.json()) as JobStatusResponse | { detail?: string };
 

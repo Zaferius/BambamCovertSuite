@@ -11,6 +11,9 @@ import { ImageConverter } from "./components/image-converter";
 import { JobsDashboard } from "./components/jobs-dashboard";
 import { VideoConverter } from "./components/video-converter";
 
+import { useAuth } from "./lib/auth-context";
+import { AuthScreen } from "./components/auth-screen";
+
 type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
 
 const landingToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label: string }> = [
@@ -42,9 +45,12 @@ function BambamLogo() {
   );
 }
 
-
 export default function HomePage() {
   const [activeView, setActiveView] = useState<ViewKey>("landing");
+  const { user, logout, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (!user) return <AuthScreen />;
 
   const renderView = () => {
     if (activeView === "image") return <ImageConverter />;
@@ -81,16 +87,24 @@ export default function HomePage() {
     <main className={`page-shell ${activeView === "landing" ? "landing-page-shell" : ""}`}>
       {activeView !== "landing" && (
         <header className="top-nav">
-          {navItems.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`top-nav-item ${activeView === item.key ? "active" : ""}`}
-              onClick={() => setActiveView(item.key)}
-            >
-              {item.label}
+          <div className="top-nav-tabs">
+            {navItems.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`top-nav-item ${activeView === item.key ? "active" : ""}`}
+                onClick={() => setActiveView(item.key)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="top-nav-user">
+            <span className="user-badge">{user?.username} {user?.is_admin ? "👑" : ""}</span>
+            <button className="primary-button inline-button logout-button" onClick={logout}>
+              Logout
             </button>
-          ))}
+          </div>
         </header>
       )}
 

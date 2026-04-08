@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, SyntheticEvent, useEffect, useMemo, useState } 
 import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
+import { authFetch } from "../lib/auth-fetch";
 
 
 const videoFormats = ["MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"] as const;
@@ -132,7 +133,7 @@ export function VideoConverter() {
       await new Promise((resolve) => window.setTimeout(resolve, 1000));
 
       const statusPath = isBatch ? `/batch/jobs/${jobId}` : `/video/jobs/${jobId}`;
-      const response = await fetch(`${apiBaseUrl}${statusPath}`, {
+      const response = await authFetch(`${apiBaseUrl}${statusPath}`, {
         cache: "no-store",
       });
 

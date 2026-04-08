@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.schemas.audio import AudioJobCreateResponse
 from app.schemas.job import JobResponse
@@ -27,6 +28,7 @@ async def create_audio_job(
     trim_start: float | None = Query(default=None, ge=0),
     trim_end: float | None = Query(default=None, ge=0),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> AudioJobCreateResponse:
     normalized_format = target_format.upper()
     if normalized_format not in AUDIO_FORMATS:

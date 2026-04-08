@@ -24,6 +24,8 @@ This repository now includes an in-progress self-hosted web application stack al
 - Landing screen with centered logo, suite title, and live status cards
 - Batch and zip export support for image, audio, video, and document jobs
 - Conversion progress loader shown on all converter tabs during active jobs
+- Per-file upload progress bars with cascade fill effect during upload phase
+- Collapsible upload progress panel when more than 5 files are selected
 - All file pickers filtered to supported formats only (no stray file types)
 - Downloaded output files named `{originalname}_converted.{ext}`
 
@@ -93,6 +95,22 @@ FRONTEND_PUBLIC_PORT=3000
 1.  **Clone/Import** the repository to Coolify.
 2.  **Configure Environment Variables** as shown above.
 3.  **Deploy**. Coolify will use the `docker-compose.yml` automatically.
+
+### 3. Traefik Upload Limits & Timeout (Coolify Only)
+If you are deploying via Coolify and experience `502 Bad Gateway` or `413 Payload Too Large` during video uploads, you **must** configure the Traefik proxy timeouts.
+
+In Coolify:
+1. Go to your Application -> **Proxy** (or Advanced/Traefik settings)
+2. Add the following **Custom Traefik Labels**:
+```ini
+traefik.http.middlewares.bambam-api-bodysize.buffering.maxRequestBodyBytes=268435456
+traefik.http.middlewares.bambam-api-bodysize.buffering.memRequestBodyBytes=33554432
+traefik.http.serversTransports.bambam-api-transport.forwardingTimeouts.responseHeaderTimeout=600s
+traefik.http.serversTransports.bambam-api-transport.forwardingTimeouts.idleConnTimeout=600s
+traefik.http.serversTransports.bambam-api-transport.forwardingTimeouts.dialTimeout=60s
+traefik.http.services.bambam-api.loadbalancer.serversTransport=bambam-api-transport
+```
+*(These labels increase the proxy upload limit to 256MB and the timeout to 10 minutes).*
 
 ### ⚠️ Troubleshooting: Port Already Allocated
 If you see `Bind for 0.0.0.0:8000 failed: port is already allocated`:
@@ -223,7 +241,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.3.2-blue)
+![Version](https://img.shields.io/badge/version-1.3.3-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -422,7 +440,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.2 (Latest)
+### Version 1.3.3 (Latest)
+- ✨ Per-file upload progress bars on all converter tabs — files cascade-fill left to right as upload progresses
+- ✨ Collapsible upload progress panel for batches larger than 5 files — shows overall % and expand/collapse toggle
+- ✨ Upload phase and job processing phase are visually separated: progress bars during upload, spinner during queue/processing
+
+### Version 1.3.2
 - ✨ Added waveform trim editor to Sound tab — canvas-based waveform visualization using Web Audio API, draggable cyan handles, dark region masks, and `Enable Trim` checkbox
 - ✨ Audio trim backend support added (`trim_enabled`, `trim_start`, `trim_end`) mirroring video trim implementation
 - ✨ Manual trim time inputs in Sound tab now use `MM:SS.s` format (e.g. `02:15.0`) instead of raw seconds

@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     queue_result_ttl_seconds: int = 86400
     queue_failure_ttl_seconds: int = 604800
 
+    secret_key: str = "bambam-super-secret-key-change-this-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+
+    admin_username: str = "admin"
+    admin_password: str = "bambam123"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

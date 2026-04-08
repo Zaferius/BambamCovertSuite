@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.schemas.document import DocumentJobCreateResponse
 from app.schemas.job import JobResponse
@@ -23,6 +24,7 @@ async def create_document_job(
     file: UploadFile = File(...),
     target_format: str = Query(default="PDF"),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> DocumentJobCreateResponse:
     normalized_format = target_format.upper()
     if normalized_format not in DOCUMENT_TARGET_FORMATS:

@@ -1,19 +1,27 @@
 import "./globals.css";
 
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { AuthProvider } from "./lib/auth-context";
 
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Bambam Converter Suite Web",
-  description: "Phase 1 web shell for the self-hosted Bambam Converter Suite.",
+  title: "Bambam Converter Suite",
+  description: "A powerful, self-hosted media conversion tool.",
 };
 
-
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.className}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

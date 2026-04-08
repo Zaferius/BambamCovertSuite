@@ -1,5 +1,5 @@
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import declarative_base
+from app.models.job import Job  # noqa: E402
+from app.models.user import User  # noqa: E402
 
-
-class Base(DeclarativeBase):
-    pass
+Base = declarative_base()

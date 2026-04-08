@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 
+import { authFetch } from "../lib/auth-fetch";
+
 type JobItem = {
   id: string;
   job_type: string;
@@ -25,7 +27,7 @@ export function JobsDashboard() {
   );
 
   const loadJobs = async () => {
-    const response = await fetch(`${apiBaseUrl}/jobs`, { cache: "no-store" });
+    const response = await authFetch(`${apiBaseUrl}/jobs`, { cache: "no-store" });
     if (!response.ok) {
       return;
     }
@@ -45,7 +47,7 @@ export function JobsDashboard() {
 
   const triggerCleanup = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/admin/cleanup?older_than_hours=24`, {
+      const response = await authFetch(`${apiBaseUrl}/admin/cleanup?older_than_hours=24`, {
         method: "POST",
       });
 

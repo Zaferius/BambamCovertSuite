@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { authFetch } from "../lib/auth-fetch";
 
 type BatchRenameResponse = {
   job_id: string;
@@ -45,9 +46,7 @@ export function BatchRenameConverter() {
     for (let attempt = 0; attempt < 120; attempt += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, 1000));
 
-      const response = await fetch(`${apiBaseUrl}/batch/jobs/${jobId}`, {
-        cache: "no-store",
-      });
+      const response = await authFetch(`${apiBaseUrl}/batch/jobs/${jobId}`, { cache: "no-store" });
       const payload = (await response.json()) as JobStatusResponse | { detail?: string };
 
       if (!response.ok) {
@@ -104,7 +103,7 @@ export function BatchRenameConverter() {
         keep_extension: String(keepExtension),
       });
 
-      const response = await fetch(`${apiBaseUrl}/batch/rename/jobs?${query.toString()}`, {
+      const response = await authFetch(`${apiBaseUrl}/batch/rename/jobs?${query.toString()}`, {
         method: "POST",
         body: formData,
       });

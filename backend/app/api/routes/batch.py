@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.schemas.batch import BatchJobCreateResponse
 from app.schemas.job import JobResponse
@@ -33,6 +34,7 @@ async def create_batch_image_job(
     target_format: str = Query(default="PNG"),
     quality: int = Query(default=90, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> BatchJobCreateResponse:
     normalized_format = target_format.upper()
     if normalized_format not in IMAGE_FORMAT_MAP:
@@ -66,6 +68,7 @@ async def create_batch_video_job(
     resize_enabled: bool = Query(default=False),
     width: int | None = Query(default=None, ge=1),
     height: int | None = Query(default=None, ge=1),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BatchJobCreateResponse:
     normalized_format = target_format.upper()
@@ -110,6 +113,7 @@ async def create_batch_document_job(
     files: list[UploadFile] = File(...),
     target_format: str = Query(default="PDF"),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> BatchJobCreateResponse:
     normalized_format = target_format.upper()
     if normalized_format not in DOCUMENT_TARGET_FORMATS:
@@ -148,6 +152,7 @@ async def create_batch_audio_job(
     target_format: str = Query(default="MP3"),
     bitrate: str = Query(default="192k"),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> BatchJobCreateResponse:
     normalized_format = target_format.upper()
     if normalized_format not in AUDIO_FORMATS:
@@ -219,7 +224,7 @@ async def create_batch_rename_job(
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
-def get_batch_job(job_id: str, db: Session = Depends(get_db)) -> JobResponse:
+def get_batch_job(job_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)) -> JobResponse:
     job = JobService(db).get_job(job_id)
     if job is None or job.job_type not in {"batch_image", "batch_audio", "batch_video", "batch_document", "batch_rename"}:
         raise HTTPException(status_code=404, detail="Batch job not found")

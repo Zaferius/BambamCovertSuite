@@ -1,12 +1,14 @@
+import uuid
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.security import get_password_hash
 from app.db.base import Base
-from app.db.session import engine
+from app.db.session import engine, SessionLocal
 from app.models.job import Job
-
+from app.models.user import User
 
 settings = get_settings()
 
@@ -30,3 +32,17 @@ app.include_router(api_router)
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+    
+    db = SessionLocal()
+    try:
+        if db.query(User).count() == 0:
+            admin_user = User(
+                id=uuid.uuid4().hex,
+                username=settings.admin_username,
+                hashed_password=get_password_hash(settings.admin_password),
+                is_admin=True,
+            )
+            db.add(admin_user)
+            db.commit()
+    finally:
+        db.close()

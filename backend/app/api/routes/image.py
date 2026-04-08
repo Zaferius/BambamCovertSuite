@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.schemas.image import ImageJobCreateResponse
 from app.schemas.job import JobResponse
@@ -24,6 +25,7 @@ async def create_image_job(
     target_format: str = Query(default="PNG"),
     quality: int = Query(default=90, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> ImageJobCreateResponse:
     normalized_format = target_format.upper()
     if normalized_format not in IMAGE_FORMAT_MAP:

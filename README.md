@@ -452,6 +452,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📝 Changelog
 
 ### Version 1.3.5 (Latest)
+- ✨ Video resize now automatically normalizes odd dimensions (e.g., 471x323) to even numbers to ensure codec compatibility
 - ✨ Jobs dashboard now shows newly queued jobs immediately during upload flow
 - ✨ Jobs table now includes a right-side per-job `Download` action
 - ✨ Admin storage section now supports one-click `Delete All` for `uploads` + `outputs`

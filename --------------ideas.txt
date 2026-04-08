@@ -7,3 +7,4 @@
 
 -Video - Image - Sound -doc  size compression
 -Removebg icin rembg api key
+-jobs kısmında output yazısı cok uzun oldugunda bütün yazı cıkıyor ve ekranı kaplıyor. Expand olayı ekleyelim.

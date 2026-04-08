@@ -62,7 +62,7 @@ class VideoConversionService:
             normalized_width, normalized_height = normalize_resize_dimensions(width, height)
             cmd += [
                 "-vf",
-                f"scale=w={normalized_width}:h={normalized_height}:force_original_aspect_ratio=decrease:force_divisible_by=2:reset_sar=1,pad={normalized_width}:{normalized_height}:(ow-iw)/2:(oh-ih)/2",
+                f"scale=w={normalized_width}:h={normalized_height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={normalized_width}:{normalized_height}:(ow-iw)/2:(oh-ih)/2,setsar=1",
             ]
 
         if fps > 0:

@@ -1,4 +1,5 @@
 import shutil
+import shlex
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -111,8 +112,12 @@ def _redis_health() -> bool:
 
 def _run_compose_scale(target_count: int) -> tuple[int, str]:
     settings = get_settings()
+    command_prefix = shlex.split(settings.worker_scale_command or "")
+    if not command_prefix:
+        return 1, "WORKER_SCALE_COMMAND is empty"
+
     command = [
-        settings.worker_scale_command,
+        *command_prefix,
         "-f",
         settings.worker_compose_file,
         "up",
@@ -121,18 +126,28 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         f"worker={target_count}",
         "worker",
     ]
-    result = subprocess.run(
-        command,
-        cwd=settings.worker_compose_project_dir,
-        capture_output=True,
-        text=True,
-        timeout=settings.worker_scale_timeout_seconds,
-        check=False,
-    )
-    combined = (result.stdout or "")
-    if result.stderr:
-        combined = f"{combined}\n{result.stderr}".strip()
-    return result.returncode, combined[:4000]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=settings.worker_compose_project_dir,
+            capture_output=True,
+            text=True,
+            timeout=settings.worker_scale_timeout_seconds,
+            check=False,
+        )
+        combined = (result.stdout or "")
+        if result.stderr:
+            combined = f"{combined}\n{result.stderr}".strip()
+        return result.returncode, combined[:4000]
+    except FileNotFoundError as exc:
+        return 1, f"Scale command executable not found: {exc}"
+    except subprocess.TimeoutExpired as exc:
+        return 1, (
+            f"Scale command timed out after {settings.worker_scale_timeout_seconds}s: "
+            f"{exc}"
+        )
+    except Exception as exc:
+        return 1, f"Unexpected scale command error: {exc}"
 
 
 # ============ Bot Settings Endpoints ============

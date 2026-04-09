@@ -6,6 +6,10 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
 
 
+class UserRegister(UserCreate):
+    is_admin: bool = False
+
+
 class UserRead(BaseModel):
     id: str
     username: str

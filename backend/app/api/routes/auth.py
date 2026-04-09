@@ -13,7 +13,7 @@ from app.core.security import create_access_token, get_password_hash, verify_pas
 from app.db.session import get_db
 from app.models.user import User
 from app.models.bot_settings import BotSettings
-from app.schemas.user import Token, UserCreate, UserRead
+from app.schemas.user import Token, UserCreate, UserRead, UserRegister
 from app.worker import get_queue
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -66,7 +66,7 @@ def get_online_users() -> list[dict]:
     return online
 
 @router.post("/register", response_model=UserRead, dependencies=[Depends(get_current_active_admin)])
-def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRead:
+def register_user(user_in: UserRegister, db: Session = Depends(get_db)) -> UserRead:
     user_exists = db.query(User).filter(User.username == user_in.username).first()
     if user_exists:
         raise HTTPException(
@@ -78,7 +78,7 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRea
         id=uuid.uuid4().hex,
         username=user_in.username,
         hashed_password=get_password_hash(user_in.password),
-        is_admin=False,  # You can extend this logic if you want to create more admins
+        is_admin=user_in.is_admin,
     )
     
     db.add(new_user)

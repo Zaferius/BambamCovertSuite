@@ -13,6 +13,13 @@ type ActiveUser = {
   last_seen: number;
 };
 
+type CreatedUser = {
+  id: string;
+  username: string;
+  is_active: boolean;
+  is_admin: boolean;
+};
+
 type StoredFile = {
   source: "outputs" | "uploads";
   name: string;
@@ -199,6 +206,11 @@ function AccountView({
 
 function UsersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string }) {
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -213,8 +225,96 @@ function UsersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string
     return () => clearInterval(interval);
   }, [isOpen, apiBaseUrl]);
 
+  const handleCreateUser = async () => {
+    const trimmedUsername = username.trim();
+    if (trimmedUsername.length < 3) {
+      setSubmitMessage("✗ Username must be at least 3 characters");
+      return;
+    }
+    if (password.length < 6) {
+      setSubmitMessage("✗ Password must be at least 6 characters");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitMessage("");
+    try {
+      const res = await authFetch(`${apiBaseUrl}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: trimmedUsername,
+          password,
+          is_admin: isAdmin,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!res.ok) {
+        const detail = typeof payload.detail === "string" ? payload.detail : "Failed to create user";
+        setSubmitMessage(`✗ ${detail}`);
+        return;
+      }
+
+      const createdUser = payload as CreatedUser;
+      setUsername("");
+      setPassword("");
+      setIsAdmin(false);
+      setSubmitMessage(`✓ ${createdUser.username} created${createdUser.is_admin ? " as admin" : ""}`);
+    } catch {
+      setSubmitMessage("✗ Error creating user");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="admin-subview">
+      <div className="admin-section">
+        <h4>Create New Member</h4>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <label style={{ display: "block", fontSize: "0.8rem", marginBottom: 4, color: "var(--muted)" }}>Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              style={{ width: "100%", padding: "8px", fontSize: "0.85rem", background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", borderRadius: "4px", color: "inherit" }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: "0.8rem", marginBottom: 4, color: "var(--muted)" }}>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Minimum 6 characters"
+              style={{ width: "100%", padding: "8px", fontSize: "0.85rem", background: "rgba(0,0,0,0.2)", border: "1px solid var(--border)", borderRadius: "4px", color: "inherit" }}
+            />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
+            <span style={{ fontSize: "0.85rem" }}>Create as admin</span>
+          </label>
+          <button
+            className="admin-panel-toggle"
+            onClick={() => void handleCreateUser()}
+            disabled={isSubmitting}
+            style={{ width: "100%", opacity: isSubmitting ? 0.6 : 1 }}
+          >
+            {isSubmitting ? "Creating..." : "Create Member"}
+          </button>
+          {submitMessage && (
+            <span style={{ fontSize: "0.85rem", color: submitMessage.includes("✓") ? "#22c55e" : "#f87171" }}>
+              {submitMessage}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="admin-section">
+        <h4>Active Users</h4>
       {activeUsers.length === 0 ? (
         <p className="admin-empty">No active users</p>
       ) : (
@@ -233,6 +333,7 @@ function UsersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string
           })}
         </ul>
       )}
+      </div>
     </div>
   );
 }
@@ -600,6 +701,14 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
   const [isScaling, setIsScaling] = useState(false);
   const [message, setMessage] = useState<string>("");
 
+  const getDisplayScaleValue = (targetWorkers: number) => String(Math.max(1, targetWorkers));
+  const getRequestedTargetFromInput = (rawValue: string) => {
+    const parsed = Number(rawValue);
+    const normalized = Number.isFinite(parsed) ? Math.floor(parsed) : NaN;
+    if (!Number.isFinite(normalized) || normalized < 1) return NaN;
+    return Math.max(1, normalized - 1);
+  };
+
   const fetchWorkers = async () => {
     setIsLoading(true);
     try {
@@ -614,7 +723,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       setSummary(data.summary ?? null);
       if (data.summary) {
         // Only initialize once; do not override user input on periodic refresh.
-        setScaleTarget((prev) => prev || String(data.summary.target_workers));
+        setScaleTarget((prev) => prev || getDisplayScaleValue(data.summary.target_workers));
       }
     } catch {
       setWorkers([]);
@@ -641,9 +750,8 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       : "#ef4444";
 
   const handleScale = async () => {
-    const parsed = Number(scaleTarget);
-    const normalized = Number.isFinite(parsed) ? Math.floor(parsed) : NaN;
-    if (!Number.isFinite(normalized) || normalized < 1) {
+    const requestedTarget = getRequestedTargetFromInput(scaleTarget);
+    if (!Number.isFinite(requestedTarget) || requestedTarget < 1) {
       setMessage("✗ Enter a valid worker count");
       return;
     }
@@ -653,15 +761,15 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       const res = await authFetch(`${apiBaseUrl}/admin/workers/scale`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_count: normalized }),
+        body: JSON.stringify({ target_count: requestedTarget }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         setMessage(`✗ ${payload?.detail ?? "Scale failed"}`);
         return;
       }
-      setScaleTarget(String(normalized));
-      setMessage(`✓ Worker count set to ${normalized}`);
+      setScaleTarget(String(Math.max(1, requestedTarget)));
+      setMessage(`✓ Worker count set to ${requestedTarget}`);
       await fetchWorkers();
     } catch {
       setMessage("✗ Scale command error");
@@ -672,9 +780,9 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
 
   const handleRemoveOneWorker = async () => {
     if (!summary) return;
-      const currentTarget = summary.target_workers ?? summary.requested_target_workers ?? 1;
-      const nextTarget = Math.max(1, currentTarget - 1);
-    setScaleTarget(String(nextTarget));
+    const currentTarget = summary.target_workers ?? summary.requested_target_workers ?? 1;
+    const nextTarget = Math.max(1, currentTarget - 1);
+    setScaleTarget(getDisplayScaleValue(nextTarget));
     setIsScaling(true);
     setMessage("");
     try {
@@ -727,7 +835,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       <div className="admin-section">
         <h4>Scale Workers</h4>
         <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: "0.78rem" }}>
-          Worker count
+          Worker count input is interpreted as entered value minus 1. Example: entering 4 scales system to 3 workers.
         </p>
         <div className="workers-scale-row">
           <input
@@ -770,6 +878,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
             {workers.map((w) => {
               const isBusy = w.status === "busy";
               const isOnline = w.online;
+              const currentTarget = summary?.target_workers ?? summary?.requested_target_workers ?? 1;
               const workerLabel = w.display_name || w.worker_id;
               return (
                 <li key={w.worker_id} className="admin-user-item">
@@ -789,7 +898,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
                   <button
                     className="admin-panel-toggle"
                     onClick={() => void handleRemoveOneWorker()}
-                    disabled={isScaling || (summary?.target_workers ?? 1) <= 1}
+                    disabled={isScaling || currentTarget <= 1}
                     title="Decrease target by 1 (exact total)"
                     style={{
                       marginTop: 6,

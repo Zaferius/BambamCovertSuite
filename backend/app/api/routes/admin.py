@@ -38,7 +38,8 @@ def get_bot_settings(
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_active_admin),
 ) -> dict:
-    row = db.query(BotSettings).first()
+    """Get the legacy (singleton) bot settings for backward compatibility."""
+    row = db.query(BotSettings).filter(BotSettings.user_id == None).first()
     if not row:
         return {
             "telegram_bot_token": None,
@@ -59,8 +60,32 @@ def get_bot_token_raw(
     current_admin=Depends(get_current_active_admin),
 ) -> dict:
     """Returns raw (unmasked) token — used by the bot service at startup."""
-    row = db.query(BotSettings).first()
+    row = db.query(BotSettings).filter(BotSettings.user_id == None).first()
     return {"telegram_bot_token": row.telegram_bot_token if row else None}
+
+
+@router.get("/bot-settings/active")
+def get_active_bots(
+    db: Session = Depends(get_db),
+    current_admin=Depends(get_current_active_admin),
+) -> list[dict]:
+    """Get all active bot settings with user information."""
+    rows = db.query(BotSettings, User.username).outerjoin(
+        User, BotSettings.user_id == User.id
+    ).filter(BotSettings.bot_enabled == True).all()
+
+    result = []
+    for bot_settings, username in rows:
+        result.append({
+            "id": bot_settings.id,
+            "user_id": bot_settings.user_id,
+            "username": username or "System (Legacy)",
+            "has_token": bool(bot_settings.telegram_bot_token),
+            "bot_enabled": bot_settings.bot_enabled,
+            "updated_at": bot_settings.updated_at.isoformat() if bot_settings.updated_at else None,
+        })
+
+    return result
 
 
 @router.put("/bot-settings")
@@ -69,9 +94,10 @@ def update_bot_settings(
     db: Session = Depends(get_db),
     current_admin=Depends(get_current_active_admin),
 ) -> dict:
-    row = db.query(BotSettings).first()
+    """Update the legacy (singleton) bot settings."""
+    row = db.query(BotSettings).filter(BotSettings.user_id == None).first()
     if not row:
-        row = BotSettings(id=1)
+        row = BotSettings(user_id=None)
 
     if payload.telegram_bot_token is not None:
         row.telegram_bot_token = payload.telegram_bot_token if payload.telegram_bot_token else None

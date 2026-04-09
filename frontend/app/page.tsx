@@ -11,13 +11,14 @@ import { DocumentConverter } from "./components/document-converter";
 import { ImageConverter } from "./components/image-converter";
 import { JobsDashboard } from "./components/jobs-dashboard";
 import { VideoConverter } from "./components/video-converter";
+import { UserBotSettings } from "./components/user-bot-settings";
 
 import { useAuth } from "./lib/auth-context";
 import { useAction } from "./lib/action-context";
 import { AuthScreen } from "./components/auth-screen";
 import { AdminPanel } from "./components/admin-panel";
 
-type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
+type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs" | "bot-settings";
 
 const landingToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label: string }> = [
   { key: "image", label: "Image Converter" },
@@ -27,7 +28,7 @@ const landingToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label
   { key: "rename", label: "Batch Rename" },
 ];
 
-const navToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label: string }> = [
+const navToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs" | "bot-settings">; label: string }> = [
   { key: "image", label: "Image" },
   { key: "audio", label: "Sound" },
   { key: "video", label: "Video" },
@@ -39,6 +40,7 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: "landing", label: "Home" },
   ...navToolItems,
   { key: "jobs", label: "Jobs" },
+  { key: "bot-settings", label: "Bot Settings" },
 ];
 
 
@@ -50,8 +52,9 @@ function BambamLogo() {
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState<ViewKey>("landing");
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
   const { user, logout, isLoading } = useAuth();
-  
+
   // Track unseen finished jobs per tool
   const [hasFinishedJobs, setHasFinishedJobs] = useState<Record<string, boolean>>({});
   const [lastSeenTime, setLastSeenTime] = useState<Record<string, number>>({});
@@ -131,9 +134,21 @@ export default function HomePage() {
 
   return (
     <main className={`page-shell ${isLanding ? "landing-page-shell" : ""}`}>
+      {user?.is_admin && <AdminPanel isOpen={adminPanelOpen} setIsOpen={setAdminPanelOpen} />}
+
       {!isLanding && (
         <header className="top-nav">
           <div className="top-nav-tabs">
+            {user?.is_admin && (
+              <button
+                type="button"
+                className="top-nav-admin-btn"
+                onClick={() => setAdminPanelOpen(true)}
+                title="Open Admin Panel"
+              >
+                👥 Admin
+              </button>
+            )}
             {navItems.map((item) => (
               <button
                 key={item.key}
@@ -150,7 +165,6 @@ export default function HomePage() {
             ))}
           </div>
           <div className="top-nav-user">
-            {user?.is_admin && <AdminPanel />}
             <span className="user-badge">{user?.username} {user?.is_admin ? "👑" : ""}</span>
             <button className="primary-button logout-button" onClick={logout}>
               Logout
@@ -199,6 +213,9 @@ export default function HomePage() {
         </div>
         <div style={{ display: activeView === "jobs" ? "block" : "none" }}>
           <JobsDashboard />
+        </div>
+        <div style={{ display: activeView === "bot-settings" ? "block" : "none" }}>
+          <UserBotSettings />
         </div>
       </section>
     </main>

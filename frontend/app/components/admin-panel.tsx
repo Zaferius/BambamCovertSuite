@@ -19,14 +19,30 @@ type StoredFile = {
   owner_username?: string;
 };
 
-export function AdminPanel() {
-  const [isOpen, setIsOpen] = useState(false);
+type ActiveBot = {
+  id: number;
+  user_id: number | null;
+  username: string;
+  has_token: boolean;
+  bot_enabled: boolean;
+  updated_at: string;
+};
+
+type AdminPanelProps = {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+};
+
+export function AdminPanel({ isOpen, setIsOpen }: AdminPanelProps) {
   const [isStoredFilesOpen, setIsStoredFilesOpen] = useState(false);
   const [isBotSettingsOpen, setIsBotSettingsOpen] = useState(false);
+  const [isActivebotsOpen, setIsActiveBotsOpen] = useState(false);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [activeBots, setActiveBots] = useState<ActiveBot[]>([]);
   const [source, setSource] = useState<"outputs" | "uploads">("outputs");
   const [files, setFiles] = useState<StoredFile[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [isLoadingBots, setIsLoadingBots] = useState(false);
   const [botToken, setBotToken] = useState("");
   const [botEnabled, setBotEnabled] = useState(false);
   const [botHasToken, setBotHasToken] = useState(false);
@@ -77,9 +93,24 @@ export function AdminPanel() {
         const data = (await res.json()) as any;
         setBotEnabled(data.bot_enabled ?? false);
         setBotHasToken(data.has_token ?? false);
-        setBotToken(""); // Clear input field
+        setBotToken("");
       }
     } catch (err) {}
+  };
+
+  const fetchActiveBots = async () => {
+    setIsLoadingBots(true);
+    try {
+      const res = await authFetch(`${apiBaseUrl}/admin/bot-settings/active`);
+      if (res.ok) {
+        const data = (await res.json()) as ActiveBot[];
+        setActiveBots(data);
+      }
+    } catch (err) {
+      setActiveBots([]);
+    } finally {
+      setIsLoadingBots(false);
+    }
   };
 
   const handleSaveBotSettings = async () => {
@@ -117,6 +148,11 @@ export function AdminPanel() {
     if (!isOpen || !isBotSettingsOpen) return;
     void fetchBotSettings();
   }, [isOpen, isBotSettingsOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !isActivebotsOpen) return;
+    void fetchActiveBots();
+  }, [isOpen, isActivebotsOpen]);
 
   const handleDelete = async (file: StoredFile) => {
     const ok = window.confirm(`Delete ${file.name}?`);
@@ -163,196 +199,270 @@ export function AdminPanel() {
   };
 
   return (
-    <div className="admin-panel-wrapper">
-      <button 
-        className="admin-panel-toggle" 
-        onClick={() => setIsOpen(!isOpen)}
-        title="Admin Panel: Active Users"
-      >
-        <span style={{ fontSize: "16px" }}>👥</span> 
-        Admin Panel
-      </button>
+    <>
+      <div
+        className={`admin-panel-overlay ${isOpen ? "show" : ""}`}
+        onClick={() => setIsOpen(false)}
+      />
 
-      {isOpen && (
-        <div className="admin-panel-dropdown">
-          <div className="admin-panel-header">
+      <div className={`admin-panel-sidebar ${isOpen ? "open" : ""}`}>
+        <div className="admin-panel-header">
+          <h3>👥 Admin Panel</h3>
+          <button
+            className="admin-panel-close"
+            onClick={() => setIsOpen(false)}
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="admin-panel-content">
+          <div className="admin-section">
             <h4>Active Users</h4>
-          </div>
-          {activeUsers.length === 0 ? (
-            <p className="admin-empty">No active users</p>
-          ) : (
-            <ul className="admin-user-list">
-              {activeUsers.map((u) => {
-                const isIdle = u.action === "idle";
-                return (
-                  <li key={u.username} className="admin-user-item">
-                    <div className="admin-user-info">
-                      <span className="admin-user-name">
-                        {u.username} {u.is_admin ? "👑" : ""}
+            {activeUsers.length === 0 ? (
+              <p className="admin-empty">No active users</p>
+            ) : (
+              <ul className="admin-user-list">
+                {activeUsers.map((u) => {
+                  const isIdle = u.action === "idle";
+                  return (
+                    <li key={u.username} className="admin-user-item">
+                      <div className="admin-user-info">
+                        <span className="admin-user-name">
+                          {u.username} {u.is_admin ? "👑" : ""}
+                        </span>
+                        <div className={`status-dot ${isIdle ? "dot-idle" : "dot-active"}`} />
+                      </div>
+                      <span className="admin-user-action">
+                        {isIdle ? "Idle" : `Processing: ${u.action}`}
                       </span>
-                      <div className={`status-dot ${isIdle ? "dot-idle" : "dot-active"}`} />
-                    </div>
-                    <span className="admin-user-action">
-                      {isIdle ? "Idle" : `Processing: ${u.action}`}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
 
-          <div className="admin-panel-header" style={{ borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <h4>Storage</h4>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button
-                className="admin-panel-toggle"
-                style={{ padding: "4px 10px", fontSize: "0.76rem", borderColor: "#f87171", color: "#fca5a5" }}
-                onClick={() => void handleDeleteAllFiles()}
-              >
-                Delete All
-              </button>
+          <div className="admin-section">
+            <div className="admin-section-header">
+              <h4>Storage</h4>
               <button
                 className="admin-panel-toggle"
                 style={{ padding: "4px 10px", fontSize: "0.76rem" }}
                 onClick={() => setIsStoredFilesOpen((prev) => !prev)}
               >
-                {isStoredFilesOpen ? "Hide Stored Files" : "Show Stored Files"}
+                {isStoredFilesOpen ? "Hide" : "Show"}
               </button>
             </div>
-          </div>
 
-          {isStoredFilesOpen && (
-            <>
-              <div style={{ display: "flex", gap: 8, padding: "10px 12px" }}>
+            {isStoredFilesOpen && (
+              <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <button
+                    className="admin-panel-toggle"
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.8rem",
+                      background: source === "outputs" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)",
+                      flex: 1,
+                    }}
+                    onClick={() => setSource("outputs")}
+                  >
+                    Outputs
+                  </button>
+                  <button
+                    className="admin-panel-toggle"
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "0.8rem",
+                      background: source === "uploads" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)",
+                      flex: 1,
+                    }}
+                    onClick={() => setSource("uploads")}
+                  >
+                    Uploads
+                  </button>
+                </div>
+
                 <button
                   className="admin-panel-toggle"
-                  style={{ padding: "4px 10px", fontSize: "0.8rem", background: source === "outputs" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)" }}
-                  onClick={() => setSource("outputs")}
-                >
-                  Outputs
-                </button>
-                <button
-                  className="admin-panel-toggle"
-                  style={{ padding: "4px 10px", fontSize: "0.8rem", background: source === "uploads" ? "rgba(180,77,255,0.3)" : "rgba(180,77,255,0.12)" }}
-                  onClick={() => setSource("uploads")}
-                >
-                  Uploads
-                </button>
-              </div>
-
-              {isLoadingFiles ? (
-                <p className="admin-empty">Loading files...</p>
-              ) : files.length === 0 ? (
-                <p className="admin-empty">No files found</p>
-              ) : (
-                <ul className="admin-user-list">
-                  {files.map((f) => {
-                    return (
-                      <li key={`${f.source}:${f.relative_path}`} className="admin-user-item">
-                        <div className="admin-user-info" style={{ alignItems: "flex-start" }}>
-                          <span className="admin-user-name" style={{ fontSize: "0.84rem", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }} title={f.relative_path}>
-                            {f.name}
-                          </span>
-                          <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>{formatSize(f.size)}</span>
-                        </div>
-                        <span className="admin-user-action">{new Date(f.modified_at).toLocaleString()}</span>
-                        <span className="admin-user-action">Owner: {f.owner_username ?? "Unknown"}</span>
-                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <button
-                            className="admin-panel-toggle"
-                            style={{ padding: "4px 10px", fontSize: "0.76rem" }}
-                            onClick={() => void handleView(f)}
-                          >
-                            View
-                          </button>
-                          <button
-                            className="admin-panel-toggle"
-                            style={{ padding: "4px 10px", fontSize: "0.76rem", borderColor: "#f87171", color: "#fca5a5" }}
-                            onClick={() => void handleDelete(f)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </>
-          )}
-
-          <div className="admin-panel-header" style={{ borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <h4>🤖 Bot Settings</h4>
-            <button
-              className="admin-panel-toggle"
-              style={{ padding: "4px 10px", fontSize: "0.76rem" }}
-              onClick={() => setIsBotSettingsOpen((prev) => !prev)}
-            >
-              {isBotSettingsOpen ? "Hide" : "Show"}
-            </button>
-          </div>
-
-          {isBotSettingsOpen && (
-            <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: "0.85rem", flex: 1 }}>Bot Enabled: {botEnabled ? "✓" : "✗"}</span>
-                <span style={{ fontSize: "0.85rem", flex: 1 }}>Token: {botHasToken ? "✓" : "Not configured"}</span>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "0.8rem", marginBottom: 4, color: "var(--muted)" }}>
-                  Telegram Bot Token
-                </label>
-                <input
-                  type="password"
-                  placeholder="Paste your Telegram bot token from @BotFather"
-                  value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)}
                   style={{
+                    padding: "6px 10px",
+                    fontSize: "0.76rem",
+                    borderColor: "#f87171",
+                    color: "#fca5a5",
                     width: "100%",
-                    padding: "8px",
-                    fontSize: "0.85rem",
-                    background: "rgba(0,0,0,0.2)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "4px",
-                    color: "inherit",
-                    fontFamily: "monospace",
+                    marginBottom: 12,
                   }}
-                />
-                <p style={{ fontSize: "0.75rem", marginTop: 4, color: "var(--muted)" }}>
-                  Leave empty to keep current token
-                </p>
-              </div>
+                  onClick={() => void handleDeleteAllFiles()}
+                >
+                  Delete All Files
+                </button>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={botEnabled}
-                    onChange={(e) => setBotEnabled(e.target.checked)}
-                    style={{ cursor: "pointer" }}
-                  />
-                  <span style={{ fontSize: "0.85rem" }}>Bot Enabled</span>
-                </label>
-              </div>
+                {isLoadingFiles ? (
+                  <p className="admin-empty">Loading files...</p>
+                ) : files.length === 0 ? (
+                  <p className="admin-empty">No files found</p>
+                ) : (
+                  <ul className="admin-user-list">
+                    {files.map((f) => {
+                      return (
+                        <li key={`${f.source}:${f.relative_path}`} className="admin-user-item">
+                          <div className="admin-user-info" style={{ alignItems: "flex-start" }}>
+                            <span
+                              className="admin-user-name"
+                              style={{ fontSize: "0.84rem", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}
+                              title={f.relative_path}
+                            >
+                              {f.name}
+                            </span>
+                            <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>{formatSize(f.size)}</span>
+                          </div>
+                          <span className="admin-user-action">{new Date(f.modified_at).toLocaleString()}</span>
+                          <span className="admin-user-action">Owner: {f.owner_username ?? "Unknown"}</span>
+                          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                            <button
+                              className="admin-panel-toggle"
+                              style={{ padding: "4px 10px", fontSize: "0.76rem", flex: 1 }}
+                              onClick={() => void handleView(f)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="admin-panel-toggle"
+                              style={{ padding: "4px 10px", fontSize: "0.76rem", borderColor: "#f87171", color: "#fca5a5", flex: 1 }}
+                              onClick={() => void handleDelete(f)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
 
+          <div className="admin-section">
+            <div className="admin-section-header">
+              <h4>🤖 Active Bots</h4>
               <button
                 className="admin-panel-toggle"
-                onClick={() => void handleSaveBotSettings()}
-                disabled={botSaveLoading}
-                style={{
-                  padding: "8px 16px",
-                  fontSize: "0.85rem",
-                  opacity: botSaveLoading ? 0.5 : 1,
-                  cursor: botSaveLoading ? "not-allowed" : "pointer",
-                }}
+                style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+                onClick={() => setIsActiveBotsOpen((prev) => !prev)}
               >
-                {botSaveLoading ? "Saving..." : "Save Bot Settings"}
+                {isActivebotsOpen ? "Hide" : "Show"}
               </button>
             </div>
-          )}
+
+            {isActivebotsOpen && (
+              <>
+                {isLoadingBots ? (
+                  <p className="admin-empty">Loading bots...</p>
+                ) : activeBots.length === 0 ? (
+                  <p className="admin-empty">No active bots</p>
+                ) : (
+                  <ul className="admin-user-list">
+                    {activeBots.map((bot) => {
+                      return (
+                        <li key={bot.id} className="admin-user-item">
+                          <div className="admin-user-info">
+                            <span className="admin-user-name">{bot.username}</span>
+                            <div className={`status-dot ${bot.has_token ? "dot-active" : "dot-idle"}`} />
+                          </div>
+                          <span className="admin-user-action">
+                            {bot.has_token ? "✓ Token configured" : "✗ No token"}
+                          </span>
+                          <span className="admin-user-action">
+                            {new Date(bot.updated_at).toLocaleString()}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="admin-section">
+            <div className="admin-section-header">
+              <h4>🤖 Bot Settings (Legacy)</h4>
+              <button
+                className="admin-panel-toggle"
+                style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+                onClick={() => setIsBotSettingsOpen((prev) => !prev)}
+              >
+                {isBotSettingsOpen ? "Hide" : "Show"}
+              </button>
+            </div>
+
+            {isBotSettingsOpen && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: "0.85rem" }}>
+                  <span>Bot Enabled: {botEnabled ? "✓" : "✗"}</span>
+                  <span>Token: {botHasToken ? "✓ Set" : "Not configured"}</span>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", marginBottom: 4, color: "var(--muted)" }}>
+                    Telegram Bot Token
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Paste your Telegram bot token from @BotFather"
+                    value={botToken}
+                    onChange={(e) => setBotToken(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      fontSize: "0.85rem",
+                      background: "rgba(0,0,0,0.2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "4px",
+                      color: "inherit",
+                      fontFamily: "monospace",
+                    }}
+                  />
+                  <p style={{ fontSize: "0.75rem", marginTop: 4, color: "var(--muted)" }}>
+                    Leave empty to keep current token
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", flex: 1 }}>
+                    <input
+                      type="checkbox"
+                      checked={botEnabled}
+                      onChange={(e) => setBotEnabled(e.target.checked)}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span style={{ fontSize: "0.85rem" }}>Bot Enabled</span>
+                  </label>
+                </div>
+
+                <button
+                  className="admin-panel-toggle"
+                  onClick={() => void handleSaveBotSettings()}
+                  disabled={botSaveLoading}
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: "0.85rem",
+                    opacity: botSaveLoading ? 0.5 : 1,
+                    cursor: botSaveLoading ? "not-allowed" : "pointer",
+                    width: "100%",
+                  }}
+                >
+                  {botSaveLoading ? "Saving..." : "Save Bot Settings"}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

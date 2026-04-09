@@ -5,12 +5,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_admin, get_current_user
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.session import get_db
 from app.models.user import User
+from app.models.bot_settings import BotSettings
 from app.schemas.user import Token, UserCreate, UserRead
 from app.worker import get_queue
 
@@ -103,8 +105,69 @@ def login_user(
         raise HTTPException(status_code=400, detail="Inactive user")
 
     access_token = create_access_token(subject=user.id)
-    
+
     return Token(
         access_token=access_token,
         user=user
     )
+
+
+# ============ User Bot Settings ============
+class BotSettingsUpdate(BaseModel):
+    telegram_bot_token: str | None = None
+    bot_enabled: bool | None = None
+
+
+def _mask_token(token: str | None) -> str | None:
+    """Mask sensitive token for API responses (show first 8 chars + *****)."""
+    if not token or len(token) < 8:
+        return None
+    return f"{token[:8]}****"
+
+
+@router.get("/user/bot-settings")
+def get_user_bot_settings(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> dict:
+    """Get current user's bot settings."""
+    row = db.query(BotSettings).filter(BotSettings.user_id == current_user.id).first()
+    if not row:
+        return {
+            "telegram_bot_token": None,
+            "bot_enabled": False,
+            "has_token": False,
+        }
+    return {
+        "telegram_bot_token": _mask_token(row.telegram_bot_token),
+        "bot_enabled": row.bot_enabled,
+        "has_token": bool(row.telegram_bot_token),
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+@router.put("/user/bot-settings")
+def update_user_bot_settings(
+    payload: BotSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> dict:
+    """Update current user's bot settings."""
+    row = db.query(BotSettings).filter(BotSettings.user_id == current_user.id).first()
+    if not row:
+        row = BotSettings(user_id=current_user.id)
+
+    if payload.telegram_bot_token is not None:
+        row.telegram_bot_token = payload.telegram_bot_token if payload.telegram_bot_token else None
+    if payload.bot_enabled is not None:
+        row.bot_enabled = payload.bot_enabled
+
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    return {
+        "message": "Bot settings updated",
+        "bot_enabled": row.bot_enabled,
+        "has_token": bool(row.telegram_bot_token),
+    }

@@ -35,11 +35,18 @@ from sqlalchemy import text
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
-    
+
     db = SessionLocal()
     try:
         try:
             db.execute(text("ALTER TABLE jobs ADD COLUMN user_id VARCHAR(36)"))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+        # Add user_id column to bot_settings if it doesn't exist
+        try:
+            db.execute(text("ALTER TABLE bot_settings ADD COLUMN user_id INTEGER"))
             db.commit()
         except Exception:
             db.rollback()

@@ -31,6 +31,7 @@ This repository now includes an in-progress self-hosted web application stack al
   - File Storage: admins can view/delete all files with owner tracking; users can download their completed jobs
   - One-click Delete All button for admins to cleanup disk space
 - **Video crop overlay**: Drag handles to resize, or drag the box interior to reposition — full mouse & touch support
+- **Improved mobile touch targets** for Video crop + trim: larger crop handles, larger trim handles, and wider drag hit areas for easier finger control
 - Navbar-based fast tool switching between Home, Image, Sound, Video, Document, Batch Rename, Jobs
 - Removed completed-job notification badge indicators (`!`) from landing buttons and navbar tabs
 - Tab state persistence when switching tabs (conversion forms do not reset)
@@ -42,6 +43,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - All file pickers filtered to supported formats only (no stray file types)
 - Downloaded output files named `{originalname}_converted.{ext}`
 - Mobile-optimized UI: horizontal-scrolling navbar (no button overflow), full touch support for all controls, and improved portrait spacing so settings/logout controls do not overlap navbar tabs
+- Jobs tab mobile polish: hides long dashboard subtitle text on small screens and auto-resizes Stop/Cleanup action buttons for touch-friendly layout
 - Fixed settings gear icon (⚙️) accessible on all screens for all users
 
 ### Worker Configuration
@@ -63,7 +65,7 @@ This repository now includes an in-progress self-hosted web application stack al
 |---|---|---|---|---|
 | Image | Yes | Yes | Yes | Quality slider active for JPG/JPEG/WEBP only |
 | Sound | Yes | Yes | Yes | Bitrate control + waveform trim (MM:SS.s inputs); full touch support |
-| Video | Yes | Yes | Yes | Format/FPS/crop + single-file trim workflow; mobile touch support for crop & trim handles |
+| Video | Yes | Yes | Yes | Format/FPS/crop + single-file trim workflow; enlarged mobile touch targets for crop/trim handles |
 | Document | Yes | Yes | Yes | LibreOffice headless only |
 | Batch Rename | No | No | No | Not yet ported to web |
 
@@ -89,6 +91,10 @@ This repository now includes an in-progress self-hosted web application stack al
   - **New**: Crop overlay with 8 resize handles (corners & edges) + grab-cursor center to reposition the box
   - Selected crop region is cropped (not scaled) in output
   - **Full touch support**: all handles + box drag work on mobile
+  - **Improved mobile usability**: enlarged crop/trim handles and wider drag hit zones for easier finger interaction
+- **Jobs Screen**:
+  - Responsive action controls for `Stop all jobs`, `Stop jobs`, and `Cleanup finished jobs`
+  - Long dashboard subtitle is hidden on very small mobile widths for cleaner layout
 - **Job monitoring**: animated spinner with live job status during conversion on all converter screens
 
 ## 🚀 Web App Deployment (Coolify / Docker VDS)
@@ -687,7 +693,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.4.2 (Latest)
+### Version 1.4.3 (Latest)
+- ✨ Video crop overlay handles enlarged for easier touch drag on mobile
+- ✨ Video trim handles enlarged with wider hit area for easier finger control
+- ✨ Jobs dashboard action buttons (`Stop all jobs`, `Stop jobs`, `Cleanup finished jobs`) now resize/reflow responsively on mobile
+- ✨ Jobs dashboard long subtitle text is hidden on very small screens for cleaner mobile layout
+
+### Version 1.4.2
 - ✨ Workers panel scale control now applies **exact final worker count** behavior (non-additive)
 - ✨ Workers target display now reconciles against actual running Docker Compose worker replicas for more accurate scaling telemetry
 - ✨ Added per-worker quick `×` action to reduce desired worker total by 1

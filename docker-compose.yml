@@ -29,13 +29,186 @@ services:
       retries: 5
       start_period: 20s
 
-  worker:
+  worker-1:
     build:
       context: .
       dockerfile: backend/Dockerfile
     command: python -m app.worker
-    deploy:
-      replicas: 8
+    environment:
+      - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+      - WORKER_COMPOSE_PROJECT_DIR=/workspace
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+      - ./data/uploads:/data/uploads
+      - ./data/outputs:/data/outputs
+      - ./data/db:/data/db
+      - ./data/temp:/data/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('worker-ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  worker-2:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker
+    environment:
+      - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+      - WORKER_COMPOSE_PROJECT_DIR=/workspace
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+      - ./data/uploads:/data/uploads
+      - ./data/outputs:/data/outputs
+      - ./data/db:/data/db
+      - ./data/temp:/data/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('worker-ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  worker-3:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker
+    environment:
+      - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+      - WORKER_COMPOSE_PROJECT_DIR=/workspace
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+      - ./data/uploads:/data/uploads
+      - ./data/outputs:/data/outputs
+      - ./data/db:/data/db
+      - ./data/temp:/data/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('worker-ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  worker-4:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker
+    environment:
+      - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+      - WORKER_COMPOSE_PROJECT_DIR=/workspace
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+      - ./data/uploads:/data/uploads
+      - ./data/outputs:/data/outputs
+      - ./data/db:/data/db
+      - ./data/temp:/data/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('worker-ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  worker-5:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker
+    environment:
+      - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+      - WORKER_COMPOSE_PROJECT_DIR=/workspace
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+      - ./data/uploads:/data/uploads
+      - ./data/outputs:/data/outputs
+      - ./data/db:/data/db
+      - ./data/temp:/data/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('worker-ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  worker-6:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker
+    environment:
+      - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+      - WORKER_COMPOSE_PROJECT_DIR=/workspace
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+      - ./data/uploads:/data/uploads
+      - ./data/outputs:/data/outputs
+      - ./data/db:/data/db
+      - ./data/temp:/data/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('worker-ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  worker-7:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker
+    environment:
+      - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+      - WORKER_COMPOSE_PROJECT_DIR=/workspace
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workspace
+      - ./data/uploads:/data/uploads
+      - ./data/outputs:/data/outputs
+      - ./data/db:/data/db
+      - ./data/temp:/data/temp
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('worker-ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  worker-8:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m app.worker
     environment:
       - WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
       - WORKER_COMPOSE_PROJECT_DIR=/workspace

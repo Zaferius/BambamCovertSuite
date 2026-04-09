@@ -1,4 +1,6 @@
 import uuid
+import threading
+import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -63,3 +65,23 @@ def on_startup() -> None:
             db.commit()
     finally:
         db.close()
+
+    # Auto-scale workers to the configured default on startup.
+    # Runs in a background thread so it doesn't block the API from accepting
+    # requests while docker compose is doing its thing.
+    if settings.worker_scale_enabled:
+        def _auto_scale() -> None:
+            # Brief delay so Redis and the compose daemon are ready before we issue
+            # the scale command.
+            time.sleep(8)
+            try:
+                from app.api.routes.admin import _run_compose_scale
+                from app.worker import set_worker_target_count
+                target = settings.worker_target_default
+                code, _ = _run_compose_scale(target)
+                if code == 0:
+                    set_worker_target_count(target)
+            except Exception:
+                pass
+
+        threading.Thread(target=_auto_scale, daemon=True).start()

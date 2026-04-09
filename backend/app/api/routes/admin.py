@@ -22,6 +22,7 @@ from app.services.cleanup_service import CleanupService
 from app.worker import (
     WORKER_SCALE_LOCK_KEY,
     get_queue,
+    get_queue,
     get_worker_target_count,
     list_worker_statuses,
     set_worker_target_count,
@@ -57,7 +58,60 @@ def _resolve_worker_health(
         return "degraded"
     if queue_size > 0 and not any(w.get("status") == "busy" for w in online_workers):
         return "degraded"
-    return "healthy!"
+    return "healthy"
+
+
+def _count_compose_workers() -> int | None:
+    settings = get_settings()
+    command_prefix = shlex.split(settings.worker_scale_command or "")
+    if not command_prefix:
+        return None
+
+    configured_compose_file = (settings.worker_compose_file or "").strip()
+    configured_project_dir = (settings.worker_compose_project_dir or "").strip()
+    compose_candidates: list[Path] = []
+    if configured_compose_file:
+        compose_candidates.append(Path(configured_compose_file))
+    compose_candidates.extend(
+        [
+            Path("/workspace/docker-compose.yml"),
+            Path("/workspace/docker-compose.yaml"),
+            Path("/app/docker-compose.yml"),
+            Path("/app/docker-compose.yaml"),
+        ]
+    )
+
+    compose_file_path: Path | None = None
+    for candidate in compose_candidates:
+        if candidate.exists() and candidate.is_file():
+            compose_file_path = candidate
+            break
+    if compose_file_path is None:
+        return None
+
+    project_dir = configured_project_dir or str(compose_file_path.parent)
+    command = [
+        *command_prefix,
+        "-f",
+        str(compose_file_path),
+        "ps",
+        "-q",
+        "worker",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=min(settings.worker_scale_timeout_seconds, 30),
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        return len([line for line in (result.stdout or "").splitlines() if line.strip()])
+    except Exception:
+        return None
 
 
 def _list_workers_with_online_flag() -> tuple[list[dict], int, int, int]:
@@ -334,18 +388,20 @@ def list_workers(current_admin=Depends(get_current_active_admin)) -> dict:
     workers, online_count, busy_count, idle_count = _list_workers_with_online_flag()
     queue_size = _queue_size()
     target_count = get_worker_target_count()
+    actual_compose_count = _count_compose_workers()
+    effective_target_count = actual_compose_count if actual_compose_count is not None else target_count
     redis_ok = _redis_health()
     health = _resolve_worker_health(
         workers,
         queue_size,
-        target_count,
+        effective_target_count,
         api_ok=True,
         redis_ok=redis_ok,
     )
     return {
         "workers": workers,
         "summary": {
-            "target_workers": target_count,
+            "target_workers": effective_target_count,
             "online_workers": online_count,
             "busy_workers": busy_count,
             "idle_workers": idle_count,
@@ -353,6 +409,7 @@ def list_workers(current_admin=Depends(get_current_active_admin)) -> dict:
             "health": health,
             "api_ok": True,
             "redis_ok": redis_ok,
+            "requested_target_workers": target_count,
         },
     }
 

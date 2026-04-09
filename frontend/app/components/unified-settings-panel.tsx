@@ -47,6 +47,7 @@ type WorkerItem = {
 
 type WorkerSummary = {
   target_workers: number;
+  requested_target_workers?: number;
   online_workers: number;
   busy_workers: number;
   idle_workers: number;
@@ -671,7 +672,8 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
 
   const handleRemoveOneWorker = async () => {
     if (!summary) return;
-    const nextTarget = Math.max(1, (summary.target_workers ?? 1) - 1);
+      const currentTarget = summary.target_workers ?? summary.requested_target_workers ?? 1;
+      const nextTarget = Math.max(1, currentTarget - 1);
     setScaleTarget(String(nextTarget));
     setIsScaling(true);
     setMessage("");
@@ -791,13 +793,16 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
                     title="Decrease target by 1 (exact total)"
                     style={{
                       marginTop: 6,
-                      width: 28,
-                      height: 28,
-                      minWidth: 28,
+                      width: 30,
+                      height: 30,
+                      minWidth: 30,
+                      minHeight: 30,
                       padding: 0,
                       borderColor: "#f87171",
                       color: "#fca5a5",
                       fontWeight: 700,
+                      justifyContent: "center",
+                      lineHeight: 1,
                     }}
                   >
                     ×

@@ -778,31 +778,17 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
   const [workers, setWorkers] = useState<WorkerItem[]>([]);
   const [summary, setSummary] = useState<WorkerSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [scaleTarget, setScaleTarget] = useState<number>(0);
-  const [isScaling, setIsScaling] = useState(false);
-  const [message, setMessage] = useState<string>("");
-
-  const getDisplayScaleValue = (targetWorkers: number) => Math.min(8, Math.max(1, targetWorkers));
 
   const fetchWorkers = async () => {
     setIsLoading(true);
     try {
       const res = await authFetch(`${apiBaseUrl}/admin/workers`, { cache: "no-store" });
-      if (!res.ok) {
-        setWorkers([]);
-        setSummary(null);
-        return;
-      }
+      if (!res.ok) { setWorkers([]); setSummary(null); return; }
       const data = await res.json() as { workers: WorkerItem[]; summary: WorkerSummary };
       setWorkers(data.workers ?? []);
       setSummary(data.summary ?? null);
-      if (data.summary) {
-        // Initialize from server on first load (prev === 0); preserve user edits on refresh.
-        setScaleTarget((prev) => prev === 0 ? getDisplayScaleValue(data.summary.target_workers) : prev);
-      }
     } catch {
-      setWorkers([]);
-      setSummary(null);
+      setWorkers([]); setSummary(null);
     } finally {
       setIsLoading(false);
     }
@@ -810,11 +796,8 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
 
   useEffect(() => {
     if (!isOpen) return;
-    setScaleTarget(0); // reset so next fetchWorkers re-initializes from server
     void fetchWorkers();
-    const id = window.setInterval(() => {
-      void fetchWorkers();
-    }, 5000);
+    const id = window.setInterval(() => { void fetchWorkers(); }, 5000);
     return () => window.clearInterval(id);
   }, [isOpen, apiBaseUrl]);
 
@@ -824,58 +807,6 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
     : normalizedHealth === "degraded"
       ? "#f59e0b"
       : "#ef4444";
-
-  const handleScale = async () => {
-    const requestedTarget = Math.min(8, Math.max(1, scaleTarget));
-    setIsScaling(true);
-    setMessage("");
-    try {
-      const res = await authFetch(`${apiBaseUrl}/admin/workers/scale`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_count: requestedTarget }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setMessage(`✗ ${payload?.detail ?? "Scale failed"}`);
-        return;
-      }
-      setScaleTarget(requestedTarget);
-      setMessage(`✓ Worker count set to ${requestedTarget}`);
-      await fetchWorkers();
-    } catch {
-      setMessage("✗ Scale command error");
-    } finally {
-      setIsScaling(false);
-    }
-  };
-
-  const handleRemoveOneWorker = async () => {
-    if (!summary) return;
-    const currentTarget = summary.target_workers ?? summary.requested_target_workers ?? 1;
-    const nextTarget = Math.max(1, currentTarget - 1);
-    setScaleTarget(getDisplayScaleValue(nextTarget));
-    setIsScaling(true);
-    setMessage("");
-    try {
-      const res = await authFetch(`${apiBaseUrl}/admin/workers/scale`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_count: nextTarget }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setMessage(`✗ ${payload?.detail ?? "Scale failed"}`);
-        return;
-      }
-      setMessage(`✓ Worker count set to ${nextTarget}`);
-      await fetchWorkers();
-    } catch {
-      setMessage("✗ Scale command error");
-    } finally {
-      setIsScaling(false);
-    }
-  };
 
   return (
     <div className="admin-subview">
@@ -905,41 +836,6 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       </div>
 
       <div className="admin-section">
-        <h4>Scale Workers</h4>
-        <div className="workers-scale-card">
-          <div className="workers-scale-header-row">
-            <span className="workers-scale-label">Worker Count</span>
-            <span className="workers-scale-badge">{scaleTarget || "—"}</span>
-          </div>
-          <div className="workers-scale-range-row">
-            <span className="workers-scale-minmax">1</span>
-            <input
-              type="range"
-              min={1}
-              max={8}
-              step={1}
-              value={scaleTarget || 1}
-              onChange={(e) => setScaleTarget(Number(e.target.value))}
-              className="workers-scale-slider"
-            />
-            <span className="workers-scale-minmax">8</span>
-          </div>
-          <button
-            className="workers-scale-set-button"
-            onClick={() => void handleScale()}
-            disabled={isScaling}
-          >
-            {isScaling ? "Scaling..." : "Set Workers"}
-          </button>
-        </div>
-        {message && (
-          <p style={{ margin: "8px 0 0", fontSize: "0.82rem", color: message.includes("✓") ? "#22c55e" : "#f87171" }}>
-            {message}
-          </p>
-        )}
-      </div>
-
-      <div className="admin-section">
         <div className="admin-section-header">
           <h4>Worker List</h4>
           <button className="admin-panel-toggle" onClick={() => void fetchWorkers()} disabled={isLoading}>
@@ -956,7 +852,6 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
             {workers.map((w) => {
               const isBusy = w.status === "busy";
               const isOnline = w.online;
-              const currentTarget = summary?.target_workers ?? summary?.requested_target_workers ?? 1;
               const workerLabel = w.display_name || w.worker_id;
               return (
                 <li key={w.worker_id} className="admin-user-item">
@@ -973,27 +868,6 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
                   <span className="admin-user-action">
                     Last seen: {w.last_seen ? new Date(w.last_seen * 1000).toLocaleString() : "-"}
                   </span>
-                  <button
-                    className="admin-panel-toggle"
-                    onClick={() => void handleRemoveOneWorker()}
-                    disabled={isScaling || currentTarget <= 1}
-                    title="Decrease target by 1 (exact total)"
-                    style={{
-                      marginTop: 6,
-                      width: 30,
-                      height: 30,
-                      minWidth: 30,
-                      minHeight: 30,
-                      padding: 0,
-                      borderColor: "#f87171",
-                      color: "#fca5a5",
-                      fontWeight: 700,
-                      justifyContent: "center",
-                      lineHeight: 1,
-                    }}
-                  >
-                    ×
-                  </button>
                 </li>
               );
             })}

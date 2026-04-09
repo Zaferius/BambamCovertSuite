@@ -42,7 +42,6 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: "landing", label: "Home" },
   ...navToolItems,
   { key: "jobs", label: "Jobs" },
-  { key: "bot-settings", label: "Bot Settings" },
 ];
 
 
@@ -136,7 +135,7 @@ export default function HomePage() {
   const isLanding = activeView === "landing";
 
   return (
-    <main className={`page-shell ${isLanding ? "landing-page-shell" : ""}`}>
+    <main className={isLanding ? "landing-page-shell" : "page-shell"}>
       {user?.is_admin && <AdminPanel isOpen={adminPanelOpen} setIsOpen={setAdminPanelOpen} />}
       {user && <UserSettingsPanel isOpen={settingsPanelOpen} setIsOpen={setSettingsPanelOpen} />}
 
@@ -155,16 +154,6 @@ export default function HomePage() {
       {!isLanding && (
         <header className="top-nav">
           <div className="top-nav-tabs">
-            {user?.is_admin && (
-              <button
-                type="button"
-                className="top-nav-admin-btn"
-                onClick={() => setAdminPanelOpen(true)}
-                title="Open Admin Panel"
-              >
-                👥 Admin
-              </button>
-            )}
             {navItems.map((item) => (
               <button
                 key={item.key}
@@ -190,13 +179,15 @@ export default function HomePage() {
       )}
 
       <section className="tools-section">
-        <section className="landing-shell" style={{ display: isLanding ? "block" : "none" }}>
-          <BambamLogo />
-          <h1 className="landing-title">Bambam Converter Suite</h1>
-          <p className="landing-version">Version {APP_VERSION}</p>
-          <p className="landing-product">Bambam Product 2025</p>
+        <section className="landing-shell" style={{ display: isLanding ? "flex" : "none" }}>
+          <div className="landing-hero">
+            <BambamLogo />
+            <h1 className="landing-title">Bambam Converter Suite</h1>
+            <p className="landing-version">v{APP_VERSION}</p>
+            <p className="landing-product">All-in-one media conversion</p>
+          </div>
 
-          <div className="landing-actions">
+          <div className="landing-grid">
             {landingToolItems.map((item) => (
               <button
                 key={item.key}
@@ -209,6 +200,32 @@ export default function HomePage() {
                 {item.label}
               </button>
             ))}
+            <button
+              type="button"
+              className="landing-tool-button landing-jobs-btn"
+              onClick={() => setActiveView("jobs")}
+              style={{ position: "relative" }}
+            >
+              {hasFinishedJobs["jobs"] && <span className="notification-badge">!</span>}
+              Jobs
+            </button>
+            {user?.is_admin && (
+              <button
+                type="button"
+                className="landing-tool-button landing-admin-btn"
+                onClick={() => setAdminPanelOpen(true)}
+              >
+                Admin Panel
+              </button>
+            )}
+          </div>
+
+          <div className="landing-user-row">
+            <span className="landing-user-info">
+              Signed in as <strong>{user?.username}</strong>
+              {user?.is_admin && <span className="landing-crown"> 👑</span>}
+            </span>
+            <button className="primary-button logout-button" onClick={logout}>Logout</button>
           </div>
         </section>
 

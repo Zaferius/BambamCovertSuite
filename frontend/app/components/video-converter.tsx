@@ -75,6 +75,7 @@ export function VideoConverter() {
   const [sourceWidth, setSourceWidth] = useState<number>(1920);
   const [sourceHeight, setSourceHeight] = useState<number>(1080);
   const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
+  const [isMovingOverlay, setIsMovingOverlay] = useState(false);
   const [overlayRect, setOverlayRect] = useState({ left: 0, top: 0, w: 1, h: 1 });
   const resizeDragStartRef = useRef<{
     startX: number;
@@ -251,6 +252,7 @@ export function VideoConverter() {
 
   const startResizeDrag = (handle: ResizeHandle) => (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     const stage = resizeStageRef.current;
     if (!stage) return;
     resizeDragStartRef.current = {
@@ -263,6 +265,77 @@ export function VideoConverter() {
       snapH: overlayRect.h,
     };
     setActiveResizeHandle(handle);
+  };
+
+  // Move overlay drag
+  useEffect(() => {
+    if (!isMovingOverlay) return;
+
+    const onMove = (clientX: number, clientY: number) => {
+      const start = resizeDragStartRef.current;
+      if (!start) return;
+      const dxF = (clientX - start.startX) / start.stageRect.width;
+      const dyF = (clientY - start.startY) / start.stageRect.height;
+      const left = Math.max(0, Math.min(1 - start.snapW, start.snapLeft + dxF));
+      const top = Math.max(0, Math.min(1 - start.snapH, start.snapTop + dyF));
+      setOverlayRect({ left, top, w: start.snapW, h: start.snapH });
+    };
+
+    const onMouseMove = (e: MouseEvent) => onMove(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      if (t) onMove(t.clientX, t.clientY);
+    };
+    const onUp = () => {
+      setIsMovingOverlay(false);
+      resizeDragStartRef.current = null;
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("mouseup", onUp);
+    document.addEventListener("touchend", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("mouseup", onUp);
+      document.removeEventListener("touchend", onUp);
+    };
+  }, [isMovingOverlay]);
+
+  const startOverlayMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const stage = resizeStageRef.current;
+    if (!stage) return;
+    resizeDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      stageRect: stage.getBoundingClientRect(),
+      snapLeft: overlayRect.left,
+      snapTop: overlayRect.top,
+      snapW: overlayRect.w,
+      snapH: overlayRect.h,
+    };
+    setIsMovingOverlay(true);
+  };
+
+  const startOverlayMoveTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const stage = resizeStageRef.current;
+    if (!stage) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    resizeDragStartRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      stageRect: stage.getBoundingClientRect(),
+      snapLeft: overlayRect.left,
+      snapTop: overlayRect.top,
+      snapW: overlayRect.w,
+      snapH: overlayRect.h,
+    };
+    setIsMovingOverlay(true);
   };
 
 
@@ -510,7 +583,12 @@ export function VideoConverter() {
             <div ref={resizeStageRef} className="video-resize-stage">
               <video ref={videoRef} className="trim-preview" src={previewUrl} controls={!resizeEnabled} preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
               {resizeEnabled ? (
-                <div className="video-resize-overlay" style={{ left: `${overlayRect.left * 100}%`, top: `${overlayRect.top * 100}%`, width: `${overlayRect.w * 100}%`, height: `${overlayRect.h * 100}%` }}>
+                <div
+                  className="video-resize-overlay"
+                  style={{ left: `${overlayRect.left * 100}%`, top: `${overlayRect.top * 100}%`, width: `${overlayRect.w * 100}%`, height: `${overlayRect.h * 100}%`, cursor: isMovingOverlay ? "grabbing" : "grab", pointerEvents: "auto" }}
+                  onMouseDown={startOverlayMove}
+                  onTouchStart={startOverlayMoveTouch}
+                >
                   <span className="resize-overlay-label">
                     {width} × {height}px
                     {(overlayRect.left > 0 || overlayRect.top > 0) && (
@@ -525,6 +603,7 @@ export function VideoConverter() {
                       onMouseDown={startResizeDrag(handle)}
                       onTouchStart={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         const stage = resizeStageRef.current;
                         if (!stage) return;
                         const touch = e.touches[0];

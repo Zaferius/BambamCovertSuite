@@ -24,6 +24,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Manual cleanup endpoint for finished and stale jobs
 - **Unified Settings Panel** (⚙️ button, left-sliding sidebar):
   - Admin users see: Account info, Active Users monitor, **Workers monitor + scaling**, File Storage manager (all files), System & Personal Bot Settings
+  - Admin Users sub-panel now offers an **Admin-only Users** view with real-time active users, a member creation form, and full registered user listing + delete controls
   - Admin users now also get a **Workers** monitor: live worker list (online/offline, idle/busy, current job), queue size, API/Redis health, and admin scale control
   - Workers scale input now preserves typed value during auto-refresh
   - Workers health color mapping normalized so `healthy` always renders green
@@ -75,10 +76,10 @@ This repository now includes an in-progress self-hosted web application stack al
     - Users: real-time list of active users with status (idle/processing), 3s refresh
     - Workers: real-time worker telemetry + scale control (exact worker count, health summary, queue pressure)
     - Storage: browse uploads/outputs with owner tracking, view/delete individual files, one-click Delete All
-    - Bot Settings: list of active user bots + system-wide bot config (legacy)
+    - Telegram Bot Settings: list of active user bots + system-wide bot config (legacy)
   - **User sections**:
     - Storage: list of user's completed jobs with download button
-    - Bot Settings: personal Telegram bot token + enable/disable toggle
+    - Telegram Bot Settings: personal Telegram bot token + enable/disable toggle
   - Responsive: 320px desktop sidebar, full-width mobile, sub-menu navigation with back button
 - **Sound Screen**: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, Enable Trim checkbox — **full touch support on mobile**
 - **Video Screen**: 
@@ -693,6 +694,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - 🐛 Fixed portrait mobile navbar/header overlap so settings gear and logout controls no longer cover tool tabs
 - 🐛 Fixed worker count input reset during periodic telemetry refresh
 - 🐛 Fixed workers health badge color mismatch by normalizing health status text
+- ✨ Admin Users view now offers account creation plus full registered user listing with delete actions, and the Workers scale control uses the landing-style slider
 
 ### Version 1.4.1
 - ✨ Removed completed-job notification `!` badges from both landing quick buttons and top navbar tabs

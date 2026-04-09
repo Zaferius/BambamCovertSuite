@@ -20,6 +20,13 @@ type CreatedUser = {
   is_admin: boolean;
 };
 
+type RegisteredUser = {
+  id: string;
+  username: string;
+  is_active: boolean;
+  is_admin: boolean;
+};
+
 type StoredFile = {
   source: "outputs" | "uploads";
   name: string;
@@ -106,7 +113,7 @@ export function UnifiedSettingsPanel({ isOpen, setIsOpen }: Props) {
     ...(isAdmin ? [{ key: "users" as SubView, label: "Users", icon: "👥", adminOnly: true }] : []),
     ...(isAdmin ? [{ key: "workers" as SubView, label: "Workers", icon: "🧰", adminOnly: true }] : []),
     { key: "storage", label: "Storage", icon: "🗂️" },
-    { key: "bot-settings", label: "Bot Settings", icon: "🤖" },
+    { key: "bot-settings", label: "Telegram Bot Settings", icon: "🤖" },
   ];
 
   const currentLabel = menuItems.find((m) => m.key === activeSubView)?.label ?? "";
@@ -206,11 +213,27 @@ function AccountView({
 
 function UsersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string }) {
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [submitMessage, setSubmitMessage] = useState("");
+
+  const fetchRegisteredUsers = async () => {
+    setIsUsersLoading(true);
+    try {
+      const res = await authFetch(`${apiBaseUrl}/auth/users`, { cache: "no-store" });
+      if (res.ok) setRegisteredUsers(await res.json());
+      else setRegisteredUsers([]);
+    } catch {
+      setRegisteredUsers([]);
+    } finally {
+      setIsUsersLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -221,6 +244,7 @@ function UsersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string
       } catch {}
     };
     fetch_();
+    void fetchRegisteredUsers();
     const interval = setInterval(fetch_, 3000);
     return () => clearInterval(interval);
   }, [isOpen, apiBaseUrl]);
@@ -261,10 +285,34 @@ function UsersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string
       setPassword("");
       setIsAdmin(false);
       setSubmitMessage(`✓ ${createdUser.username} created${createdUser.is_admin ? " as admin" : ""}`);
+      await fetchRegisteredUsers();
     } catch {
       setSubmitMessage("✗ Error creating user");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = async (user: RegisteredUser) => {
+    if (!confirm(`Delete user ${user.username}?`)) return;
+    setDeletingUserId(user.id);
+    setSubmitMessage("");
+    try {
+      const res = await authFetch(`${apiBaseUrl}/auth/users/${user.id}`, {
+        method: "DELETE",
+      });
+      const payload = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!res.ok) {
+        const detail = typeof payload.detail === "string" ? payload.detail : "Failed to delete user";
+        setSubmitMessage(`✗ ${detail}`);
+        return;
+      }
+      setRegisteredUsers((prev) => prev.filter((item) => item.id !== user.id));
+      setSubmitMessage(`✓ ${user.username} deleted`);
+    } catch {
+      setSubmitMessage("✗ Error deleting user");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -333,6 +381,39 @@ function UsersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string
           })}
         </ul>
       )}
+      </div>
+
+      <div className="admin-section">
+        <div className="admin-section-header">
+          <h4>All Registered Users</h4>
+          <button className="admin-panel-toggle" onClick={() => void fetchRegisteredUsers()} disabled={isUsersLoading}>
+            {isUsersLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+        {isUsersLoading && registeredUsers.length === 0 ? (
+          <p className="admin-empty">Loading users...</p>
+        ) : registeredUsers.length === 0 ? (
+          <p className="admin-empty">No registered users found</p>
+        ) : (
+          <ul className="admin-user-list">
+            {registeredUsers.map((user) => (
+              <li key={user.id} className="admin-user-item">
+                <div className="admin-user-info">
+                  <span className="admin-user-name">{user.username} {user.is_admin ? "👑" : ""}</span>
+                  <span className="admin-user-action">{user.is_active ? "Active" : "Inactive"}</span>
+                </div>
+                <button
+                  className="admin-panel-toggle"
+                  onClick={() => void handleDeleteUser(user)}
+                  disabled={deletingUserId === user.id}
+                  style={{ marginTop: 8, borderColor: "#f87171", color: "#fca5a5" }}
+                >
+                  {deletingUserId === user.id ? "Deleting..." : "Delete"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -697,7 +778,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
   const [workers, setWorkers] = useState<WorkerItem[]>([]);
   const [summary, setSummary] = useState<WorkerSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [scaleTarget, setScaleTarget] = useState<number>(1);
+  const [scaleTarget, setScaleTarget] = useState<number>(0);
   const [isScaling, setIsScaling] = useState(false);
   const [message, setMessage] = useState<string>("");
 
@@ -716,8 +797,8 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       setWorkers(data.workers ?? []);
       setSummary(data.summary ?? null);
       if (data.summary) {
-        // Only initialize once; do not override user input on periodic refresh.
-        setScaleTarget((prev) => prev || getDisplayScaleValue(data.summary.target_workers));
+        // Initialize from server on first load (prev === 0); preserve user edits on refresh.
+        setScaleTarget((prev) => prev === 0 ? getDisplayScaleValue(data.summary.target_workers) : prev);
       }
     } catch {
       setWorkers([]);
@@ -729,6 +810,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
 
   useEffect(() => {
     if (!isOpen) return;
+    setScaleTarget(0); // reset so next fetchWorkers re-initializes from server
     void fetchWorkers();
     const id = window.setInterval(() => {
       void fetchWorkers();
@@ -827,7 +909,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
         <div className="workers-scale-card">
           <div className="workers-scale-header-row">
             <span className="workers-scale-label">Worker Count</span>
-            <span className="workers-scale-badge">{scaleTarget}</span>
+            <span className="workers-scale-badge">{scaleTarget || "—"}</span>
           </div>
           <div className="workers-scale-range-row">
             <span className="workers-scale-minmax">1</span>
@@ -836,7 +918,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
               min={1}
               max={8}
               step={1}
-              value={scaleTarget}
+              value={scaleTarget || 1}
               onChange={(e) => setScaleTarget(Number(e.target.value))}
               className="workers-scale-slider"
             />

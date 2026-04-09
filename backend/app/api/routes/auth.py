@@ -88,6 +88,26 @@ def register_user(user_in: UserRegister, db: Session = Depends(get_db)) -> UserR
     return new_user
 
 
+@router.get("/users", response_model=list[UserRead], dependencies=[Depends(get_current_active_admin)])
+def list_registered_users(db: Session = Depends(get_db)) -> list[UserRead]:
+    users = db.query(User).order_by(User.is_admin.desc(), User.username.asc()).all()
+    return users
+
+
+@router.delete("/users/{user_id}", dependencies=[Depends(get_current_active_admin)])
+def delete_user(user_id: str, db: Session = Depends(get_db), current_admin=Depends(get_current_active_admin)) -> dict:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if user.id == current_admin.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete your own account")
+
+    db.delete(user)
+    db.commit()
+    return {"message": "User deleted successfully"}
+
+
 @router.post("/login", response_model=Token)
 def login_user(
     db: Session = Depends(get_db),

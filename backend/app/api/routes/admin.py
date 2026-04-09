@@ -213,7 +213,7 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         sanitized_lines: list[str] = []
         in_worker_block = False
         worker_indent = 0
-        removed_container_name = False
+        removed_container_name: str | None = None
 
         for line in lines:
             stripped = line.strip()
@@ -228,13 +228,15 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
             if in_worker_block:
                 if stripped and indent <= worker_indent and not stripped.startswith("#"):
                     in_worker_block = False
-                elif re.match(r"^\s*container_name\s*:\s*.+$", line):
-                    removed_container_name = True
-                    continue
+                else:
+                    m = re.match(r"^\s*container_name\s*:\s*(.+)\s*$", line)
+                    if m:
+                        removed_container_name = m.group(1).strip()
+                        continue
 
             sanitized_lines.append(line)
 
-        if removed_container_name:
+        if removed_container_name is not None:
             # Keep temp compose next to the original so relative paths such as
             # `env_file: .env` continue to resolve correctly.
             with tempfile.NamedTemporaryFile(
@@ -275,6 +277,23 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         combined = (result.stdout or "")
         if result.stderr:
             combined = f"{combined}\n{result.stderr}".strip()
+        if result.returncode == 0 and removed_container_name:
+            # The original container had a fixed container_name which was removed
+            # from the temp compose so --scale could work. That original container
+            # is still running as an extra instance; stop and remove it now so the
+            # final count equals exactly target_count.
+            try:
+                docker_bin = shutil.which("docker") or "docker"
+                subprocess.run(
+                    [docker_bin, "stop", removed_container_name],
+                    capture_output=True, timeout=30, check=False,
+                )
+                subprocess.run(
+                    [docker_bin, "rm", "-f", removed_container_name],
+                    capture_output=True, timeout=30, check=False,
+                )
+            except Exception:
+                pass
         return result.returncode, combined[:4000]
     except FileNotFoundError as exc:
         return 1, f"Scale command executable not found: {exc}"

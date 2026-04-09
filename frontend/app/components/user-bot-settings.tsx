@@ -65,7 +65,7 @@ export function UserBotSettings() {
 
   return (
     <div className="converter-form">
-      <h2 style={{ marginBottom: "20px" }}>🤖 Bot Settings</h2>
+      <h2 style={{ marginBottom: "20px" }}>🤖 Telegram Bot Settings</h2>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div className="field-group">

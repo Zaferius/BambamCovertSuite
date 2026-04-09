@@ -38,7 +38,7 @@ type SubView = "users" | "storage" | "bot-settings";
 const menuItems: Array<{ key: SubView; label: string; icon: string }> = [
   { key: "users", label: "Users", icon: "👥" },
   { key: "storage", label: "Storage", icon: "🗂️" },
-  { key: "bot-settings", label: "Bot Settings", icon: "🤖" },
+  { key: "bot-settings", label: "Telegram Bot Settings", icon: "🤖" },
 ];
 
 export function AdminPanel({ isOpen, setIsOpen }: AdminPanelProps) {

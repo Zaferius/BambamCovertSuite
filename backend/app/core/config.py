@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     worker_scale_timeout_seconds: int = 120
     worker_min_count: int = 1
     worker_max_count: int = 8
-    worker_target_default: int = 1
+    worker_target_default: int = 2
 
     secret_key: str = "bambam-super-secret-key-change-this-in-production"
     algorithm: str = "HS256"

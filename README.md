@@ -53,10 +53,15 @@ This repository now includes an in-progress self-hosted web application stack al
 ### Web UI Snapshot
 
 - Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
-- Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, and Jobs
+- Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, Jobs, and Bot Settings
 - Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox
 - Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position crop overlay handles — selected region is cropped (not scaled) in output
-- Admin panel: active users + stored files manager with authenticated view/delete actions
+- **Admin Panel** (left sidebar):
+  - Slides in from left side on desktop (320px wide)
+  - Full-width on mobile devices
+  - Sections: Active Users, Storage, Active Bots (with owner info), Bot Settings (legacy)
+  - Touch-friendly with overlay backdrop
+- **Bot Settings Tab**: All authenticated users can manage their own Telegram bot token and enable/disable their bot
 - All converter screens show an animated spinner with live job status during conversion
 
 ## 🚀 Web App Deployment (Coolify / Docker VDS)
@@ -194,25 +199,39 @@ These help control upload limits and long-running worker behavior for self-hoste
 
 ### Current Web API Overview
 
+**Conversion Jobs:**
 - `POST /image/jobs`
 - `POST /audio/jobs`
-- `POST /video/jobs`
-  - supports optional trim query params: `trim_enabled`, `trim_start`, `trim_end` (single-file flow)
+- `POST /video/jobs` — supports optional trim query params: `trim_enabled`, `trim_start`, `trim_end`
 - `POST /document/jobs`
 - `GET /jobs`
 - `GET /jobs/{job_id}`
-- `POST /admin/cleanup`
-- `POST /auth/logout`
+
+**User Bot Settings (Per-User):**
+- `GET /auth/user/bot-settings` — get current user's bot configuration
+- `PUT /auth/user/bot-settings` — update current user's bot token/enabled status
+
+**Admin Functions:**
+- `GET /admin/bot-settings/active` — list all active bots with owner information ✨ NEW
+- `GET /admin/bot-settings` — legacy system-wide bot settings (backward compatible)
+- `PUT /admin/bot-settings` — update system-wide bot settings
 - `GET /admin/files`
 - `GET /admin/files/view`
 - `DELETE /admin/files`
 - `DELETE /admin/files/all`
+- `POST /admin/cleanup`
+
+**Auth:**
+- `POST /auth/login`
+- `POST /auth/register` (admin-only)
+- `POST /auth/logout`
+- `GET /auth/online-users` (admin-only)
 
 The desktop app remains in the repository, but ongoing migration work is focused on the self-hosted web app.
 
 ## 🤖 Telegram Bot
 
-A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the Bambam backend via Telegram messaging. Bot configuration is managed entirely through the **Admin Panel** — no environment files needed.
+A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the Bambam backend via Telegram messaging. Each user can manage their own bot token through the **Bot Settings** tab, and admins can see all active bots in the **Admin Panel**. No environment files needed.
 
 ### 🎯 Phase 1: Auto-Detection & Instant Conversion (Live ✅)
 
@@ -235,15 +254,16 @@ A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the
 ### 🚀 Quick Start (3 Steps)
 
 **Step 1: Create Telegram Bot**
-- Go to [@BotFather](https://t.me/BotFather)
+- Go to [@BotFather](https://t.me/BotFather) on Telegram
 - Send `/newbot` → follow prompts → copy your **bot token**
 
-**Step 2: Configure via Admin Panel**
+**Step 2: Configure via Bot Settings (User)**
 - Open web app: `http://localhost:3000`
-- Login with admin credentials
-- Click **"👥 Admin Panel"** (top right)
-- Open **"🤖 Bot Settings"**
-- Paste token → check "Bot Enabled" → **Save**
+- Login with your account
+- Click **"Bot Settings"** in the top navbar
+- Paste your bot token in the input field
+- Check **"Enable my Telegram bot"** checkbox
+- Click **"Save Bot Settings"** → ✓ Done!
 
 **Step 3: Test**
 - Find your bot on Telegram and send `/start`
@@ -252,6 +272,11 @@ A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the
 - ⏳ Wait for processing → 🎉 Get result back
 
 **That's it!** No Docker restarts, no `.env` editing. Bot reads config from database at startup.
+
+**Note for Admins:**
+- Go to **Admin Panel** (👥 button in navbar) to see:
+  - 🤖 **Active Bots** — shows all enabled bots with owner usernames
+  - 🤖 **Bot Settings (Legacy)** — system-wide bot configuration (backward compatible)
 
 ### 🔧 How It Works
 
@@ -282,53 +307,78 @@ User: gets converted file ✅
 
 ### 🔐 Security & Credentials
 
-**Admin Panel Configuration:**
-- Token stored in SQLite database (encrypted at rest optional)
-- Only visible/editable by admin users
+**Bot Token Storage:**
+- Tokens stored in SQLite database per-user
 - Token is **masked** in UI (shows `12345678****`)
+- Only the token owner and admins can see their configuration status
 
 **Backend Authentication:**
-- Bot logs in as admin (or custom user) via JWT
+- Each bot authenticates with its owner's credentials via JWT
 - Auto-renews token on expiry
 - All API calls use Bearer token
+- Bot operates under the user's privilege level
 
 **Best Practices:**
-1. **Local/Self-hosted:** Current setup is fine (admin credentials default)
+1. **Local/Self-hosted:** Current setup is fine (default admin credentials acceptable)
 2. **Production:**
-   - Create dedicated bot user (non-admin) via admin panel
-   - Use strong password
-   - Rotate default admin credentials
+   - Use strong passwords for all user accounts
+   - Rotate default admin credentials immediately
    - Enable HTTPS / reverse proxy with SSL
+   - Consider encrypted storage for bot tokens in database
+   - Monitor active bots through Admin Panel regularly
+3. **Per-User Setup:**
+   - Each user creates their own Telegram bot via @BotFather
+   - Each bot runs under that user's account
+   - Users have full autonomy over their bot configuration
 
 ### 📊 Admin Panel Integration
 
-The bot is now fully managed via **Admin Panel** under **"🤖 Bot Settings"** section:
+**Left Sidebar Admin Panel** (click 👥 Admin button in navbar):
 
+**For All Users - Bot Settings Tab:**
 | Setting | Type | Notes |
 |---------|------|-------|
-| Telegram Bot Token | Password Input | Leave empty to keep current. Required to enable bot. |
-| Bot Enabled | Toggle | Turn bot on/off without restarting services |
-| Status Indicators | Display | Shows if token is set + if bot is enabled |
+| Bot Token | Password Input | Paste token from @BotFather. Leave empty to keep current. |
+| Bot Enabled | Toggle | Turn your bot on/off without restarting services |
+| Status | Display | Shows if token is configured + if bot is enabled |
 
-Changes take effect after bot container restart (automatic on deploy).
+**For Admins Only - Active Bots Section:**
+| Info | Display | Notes |
+|------|---------|-------|
+| Active Bots List | Display | All enabled bots with owner username |
+| Token Status | Indicator | ✓ configured or ✗ missing |
+| Last Updated | Timestamp | When bot settings were last changed |
+
+**For Admins Only - Bot Settings (Legacy):**
+- System-wide singleton bot configuration (backward compatible)
+- Only used if no per-user bots are configured
 
 ### 🐛 Troubleshooting
 
 **Bot doesn't respond:**
-- Confirm token is saved in Admin Panel
-- Check bot is **enabled** (toggle ON)
+- Go to **Bot Settings** tab in navbar
+- Confirm token is pasted and valid (from @BotFather)
+- Check **"Enable my Telegram bot"** is checked
 - Verify backend is running: `docker logs bambam-api`
 - View bot logs: `docker logs bambam-bot`
+- Admins: Check **Admin Panel** → **Active Bots** to see bot status
 
 **"Failed ❌" when converting:**
 - Check backend worker: `docker logs bambam-worker`
-- File might be unsupported format
-- Worker queue might be stuck (check Redis: `docker logs bambam-redis`)
+- File might be unsupported format (check supported formats above)
+- Worker queue might be stuck: `docker logs bambam-redis`
+- Verify your user account is active (not suspended)
 
 **Bot takes too long:**
 - Default timeout: 10 minutes per job
 - Large videos/documents naturally take longer
 - FFmpeg + LibreOffice process time depends on file size
+- Check job status in **Jobs** dashboard tab
+
+**Multiple users, only one bot works:**
+- Make sure each user has their own bot token from @BotFather
+- Each user must set their token in their **Bot Settings** tab
+- Admins can see all active bots in the **Admin Panel** → **Active Bots**
 
 ### 🔮 Future Phases (Roadmap)
 
@@ -389,7 +439,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.3.7-blue)
+![Version](https://img.shields.io/badge/version-1.3.8-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -588,7 +638,19 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.7 (Latest)
+### Version 1.3.8 (Latest)
+- ✨ **Per-User Bot Management** — Each user can now manage their own Telegram bot token in "Bot Settings" tab
+- ✨ Admin panel refactored to **left-sliding sidebar** (320px desktop, full-width mobile)
+- ✨ Admin Panel now shows **Active Bots** section with owner usernames and token status
+- ✨ New endpoint `/admin/bot-settings/active` — lists all active bots with user information
+- ✨ New user endpoints `/auth/user/bot-settings` (GET/PUT) — users manage their own bot configuration
+- ✨ BotSettings model updated with `user_id` field for per-user support (backward compatible)
+- ✨ Bot Settings tab in navbar visible to all authenticated users
+- ✨ Responsive design: mobile hamburger sidebar, touch-friendly UI
+- ✨ Updated documentation with per-user bot setup instructions
+- 🐛 Improved admin panel organization with collapsible sections
+
+### Version 1.3.7
 - ✨ Telegram bot service added (`bot/`) — send files to the bot for conversion via inline keyboard
 - ✨ Bot auto-detects file type (image/audio/video/document) from MIME type and extension  
 - ✨ Bot configuration moved to **Admin Panel** — no `.env` files needed (token + enabled toggle)

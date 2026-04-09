@@ -181,7 +181,16 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
             sanitized_lines.append(line)
 
         if removed_container_name:
-            with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".yaml", delete=False) as tmp:
+            # Keep temp compose next to the original so relative paths such as
+            # `env_file: .env` continue to resolve correctly.
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                suffix=".yaml",
+                prefix="bambam-scale-",
+                dir=str(compose_file_path.parent),
+                delete=False,
+            ) as tmp:
                 tmp.write("".join(sanitized_lines))
                 temp_compose_file = Path(tmp.name)
                 compose_file_for_scale = temp_compose_file

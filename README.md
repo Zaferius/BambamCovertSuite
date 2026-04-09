@@ -28,7 +28,9 @@ This repository now includes an in-progress self-hosted web application stack al
   - Workers scale input now preserves typed value during auto-refresh
   - Workers health color mapping normalized so `healthy` always renders green
   - Workers scaling semantics are exact-count based (set final total, not additive)
+  - Workers target count now reconciles against actual running compose worker replicas so `1 → 3` results in a final total of `3`, not `4`
   - Worker list includes quick `×` control to decrement desired total by 1
+  - Worker quick-remove (`×`) control can now decrement reliably down to the minimum worker count
   - Regular users see: Account info, Personal Storage (own jobs only), Personal Bot Settings
   - File Storage: admins can view/delete all files with owner tracking; users can download their completed jobs
   - One-click Delete All button for admins to cleanup disk space
@@ -43,7 +45,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Collapsible upload progress panel when more than 5 files are selected
 - All file pickers filtered to supported formats only (no stray file types)
 - Downloaded output files named `{originalname}_converted.{ext}`
-- Mobile-optimized UI: horizontal-scrolling navbar (no button overflow), full touch support for all controls
+- Mobile-optimized UI: horizontal-scrolling navbar (no button overflow), full touch support for all controls, and improved portrait spacing so settings/logout controls do not overlap navbar tabs
 - Fixed settings gear icon (⚙️) accessible on all screens for all users
 
 ### Current Web Limitations
@@ -66,7 +68,7 @@ This repository now includes an in-progress self-hosted web application stack al
 
 - **Landing Screen**: centered Bambam logo + suite title + `v{version}` badge + tagline + 2-column grid of quick-access tool buttons; Jobs uses the same button size as others and is placed in the right-column slot beneath Document Converter
 - **Top Navbar** (all tool screens): horizontally scrollable tabs for Home, Image, Sound, Video, Document, Batch Rename, Jobs — fits portrait mobile without overflow
-- Fixed ⚙️ **Settings FAB button** (top-left corner): opens unified settings panel for all users on all screens
+- Fixed ⚙️ **Settings FAB button** (top-left corner): opens unified settings panel for all users on all screens, with portrait-mobile-safe spacing from navbar and logout controls
 - **Unified Settings Panel** (left sidebar, both admin & users):
   - Account section: username, role indicator (👑 for admin), logout button
   - **Admin-only sections**:
@@ -684,7 +686,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Version 1.4.2 (Latest)
 - ✨ Workers panel scale control now applies **exact final worker count** behavior (non-additive)
+- ✨ Workers target display now reconciles against actual running Docker Compose worker replicas for more accurate scaling telemetry
 - ✨ Added per-worker quick `×` action to reduce desired worker total by 1
+- 🐛 Fixed worker decrement edge case where quick-remove could stop working before reaching minimum worker count
+- 🐛 Fixed quick-remove `×` button alignment so the icon sits centered within the button hit area
+- 🐛 Fixed portrait mobile navbar/header overlap so settings gear and logout controls no longer cover tool tabs
 - 🐛 Fixed worker count input reset during periodic telemetry refresh
 - 🐛 Fixed workers health badge color mismatch by normalizing health status text
 

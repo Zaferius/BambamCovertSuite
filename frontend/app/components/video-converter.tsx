@@ -195,16 +195,57 @@ export function VideoConverter() {
       setHeight(String(Math.max(2, Math.round(h * sourceHeight))));
     };
 
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const start = resizeDragStartRef.current;
+      if (!start) return;
+
+      const dxF = (touch.clientX - start.startX) / start.stageRect.width;
+      const dyF = (touch.clientY - start.startY) / start.stageRect.height;
+
+      let left = start.snapLeft;
+      let top = start.snapTop;
+      let w = start.snapW;
+      let h = start.snapH;
+
+      if (activeResizeHandle.includes("e")) {
+        w = Math.max(0.05, Math.min(1 - left, w + dxF));
+      }
+      if (activeResizeHandle.includes("w")) {
+        const newLeft = Math.max(0, Math.min(left + w - 0.05, left + dxF));
+        w = left + w - newLeft;
+        left = newLeft;
+      }
+      if (activeResizeHandle.includes("s")) {
+        h = Math.max(0.05, Math.min(1 - top, h + dyF));
+      }
+      if (activeResizeHandle.includes("n")) {
+        const newTop = Math.max(0, Math.min(top + h - 0.05, top + dyF));
+        h = top + h - newTop;
+        top = newTop;
+      }
+
+      setOverlayRect({ left, top, w, h });
+      setWidth(String(Math.max(2, Math.round(w * sourceWidth))));
+      setHeight(String(Math.max(2, Math.round(h * sourceHeight))));
+    };
+
     const onMouseUp = () => {
       setActiveResizeHandle(null);
       resizeDragStartRef.current = null;
     };
 
     document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("touchend", onMouseUp);
     return () => {
       document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("touchend", onMouseUp);
     };
   }, [activeResizeHandle, sourceWidth, sourceHeight]);
 
@@ -251,13 +292,34 @@ export function VideoConverter() {
         if (videoRef.current) videoRef.current.currentTime = newEnd;
       }
     };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const t = xToTime(touch.clientX);
+      if (isDragging === "start") {
+        const newStart = Math.min(t, trimEnd - 0.1);
+        setTrimStart(newStart);
+        if (videoRef.current) videoRef.current.currentTime = newStart;
+      } else {
+        const newEnd = Math.max(t, trimStart + 0.1);
+        setTrimEnd(newEnd);
+        if (videoRef.current) videoRef.current.currentTime = newEnd;
+      }
+    };
+
     const onMouseUp = () => setIsDragging(null);
 
     document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
     document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("touchend", onMouseUp);
     return () => {
       document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("touchend", onMouseUp);
     };
   }, [isDragging, xToTime, trimStart, trimEnd]);
 
@@ -461,6 +523,23 @@ export function VideoConverter() {
                       type="button"
                       className={`resize-handle resize-handle-${handle}`}
                       onMouseDown={startResizeDrag(handle)}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        const stage = resizeStageRef.current;
+                        if (!stage) return;
+                        const touch = e.touches[0];
+                        if (!touch) return;
+                        resizeDragStartRef.current = {
+                          startX: touch.clientX,
+                          startY: touch.clientY,
+                          stageRect: stage.getBoundingClientRect(),
+                          snapLeft: overlayRect.left,
+                          snapTop: overlayRect.top,
+                          snapW: overlayRect.w,
+                          snapH: overlayRect.h,
+                        };
+                        setActiveResizeHandle(handle);
+                      }}
                       aria-label={`Resize ${handle}`}
                     />
                   ))}
@@ -486,6 +565,11 @@ export function VideoConverter() {
                   e.preventDefault();
                   setIsDragging("start");
                 }}
+                onTouchStart={(e) => {
+                  if (!trimEnabled) return;
+                  e.preventDefault();
+                  setIsDragging("start");
+                }}
               >
                 <div className="waveform-handle-grip" />
               </div>
@@ -494,6 +578,11 @@ export function VideoConverter() {
                 className="waveform-handle"
                 style={{ left: `${trimEndPercent}%`, opacity: trimEnabled ? 1 : 0.4 }}
                 onMouseDown={(e) => {
+                  if (!trimEnabled) return;
+                  e.preventDefault();
+                  setIsDragging("end");
+                }}
+                onTouchStart={(e) => {
                   if (!trimEnabled) return;
                   e.preventDefault();
                   setIsDragging("end");

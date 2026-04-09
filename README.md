@@ -24,6 +24,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Manual cleanup endpoint for finished and stale jobs
 - Admin panel file manager for `outputs`/`uploads` (list, view, delete, owner tracking)
 - Admin storage tools: one-click `Delete All` for disk cleanup and default-collapsed `Stored Files` section
+- **Settings panel** with user account info and personal bot configuration (⚙️ icon, left-sliding sidebar)
 - Navbar-based fast tool switching in `[frontend/app/page.tsx](frontend/app/page.tsx)`
 - Tab state persistence when switching tabs (conversion forms do not reset)
 - Landing screen with centered logo, suite title, and live status cards
@@ -33,6 +34,8 @@ This repository now includes an in-progress self-hosted web application stack al
 - Collapsible upload progress panel when more than 5 files are selected
 - All file pickers filtered to supported formats only (no stray file types)
 - Downloaded output files named `{originalname}_converted.{ext}`
+- Fully responsive mobile UI with portrait/landscape support and touch-friendly controls
+- Fixed settings gear icon (⚙️) accessible on all screens for user settings and bot configuration
 
 ### Current Web Limitations
 
@@ -45,8 +48,8 @@ This repository now includes an in-progress self-hosted web application stack al
 | Module | Single File | Batch | Zip Export | Notes |
 |---|---|---|---|---|
 | Image | Yes | Yes | Yes | Quality slider active for JPG/JPEG/WEBP only |
-| Sound | Yes | Yes | Yes | Bitrate control + waveform trim (MM:SS.s inputs) |
-| Video | Yes | Yes | Yes | Format/FPS/crop + single-file trim workflow |
+| Sound | Yes | Yes | Yes | Bitrate control + waveform trim (MM:SS.s inputs); full touch support |
+| Video | Yes | Yes | Yes | Format/FPS/crop + single-file trim workflow; mobile touch support for crop & trim handles |
 | Document | Yes | Yes | Yes | LibreOffice headless only |
 | Batch Rename | No | No | No | Not yet ported to web |
 
@@ -54,15 +57,22 @@ This repository now includes an in-progress self-hosted web application stack al
 
 - Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
 - Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, Jobs, and Bot Settings
-- Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox
-- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position crop overlay handles — selected region is cropped (not scaled) in output
+- Fixed ⚙️ **Settings FAB button** (top-left corner) opens user settings panel on all screens
+- Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox — **full touch support on mobile**
+- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position crop overlay handles — selected region is cropped (not scaled) in output — **full touch support for crop and trim on mobile**
 - **Admin Panel** (left sidebar):
   - Slides in from left side on desktop (320px wide)
   - Full-width on mobile devices
   - Sections: Active Users, Storage, Active Bots (with owner info), Bot Settings (legacy)
   - Touch-friendly with overlay backdrop
-- **Bot Settings Tab**: All authenticated users can manage their own Telegram bot token and enable/disable their bot
+- **Settings Panel** (left sidebar, all users):
+  - Accessible via ⚙️ button in top-left
+  - User account information display
+  - Personal Telegram bot configuration and enable/disable toggle
+  - Same responsive design as Admin Panel (320px desktop, full-width mobile)
+- **Bot Settings Tab**: All authenticated users can manage their own Telegram bot token and enable/disable their bot (now also accessible from Settings Panel)
 - All converter screens show an animated spinner with live job status during conversion
+- Mobile portrait mode fixed: no more blur/unclickable state when panels are closed
 
 ## 🚀 Web App Deployment (Coolify / Docker VDS)
 
@@ -439,9 +449,11 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.3.8-blue)
+![Version](https://img.shields.io/badge/version-1.3.9-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
+
+> **📌 Version Management**: Update the version in `[frontend/lib/version.ts](frontend/lib/version.ts)` (the single source of truth). It will automatically reflect on the landing page. Also update the badge version number above and add a changelog entry when releasing.
 
 ## ✨ Features
 
@@ -638,7 +650,17 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.8 (Latest)
+### Version 1.3.9 (Latest)
+- ✨ **Settings Panel** — New left-sliding settings panel accessible to all users via ⚙️ FAB button (top-left)
+- ✨ Settings Panel includes user account info and personal Telegram bot configuration
+- ✨ Responsive Settings Panel design: 320px desktop, full-width on mobile (same pattern as Admin Panel)
+- ✨ **Mobile touch support** for video crop and trim controls — drag handles now work with finger touches
+- ✨ Crop overlay handles respond to touch events on mobile devices
+- ✨ Trim waveform handles respond to touch events on mobile devices (both start and end)
+- 🐛 **Fixed mobile portrait mode blur bug** — overlay no longer covers entire screen when panels are closed
+- 🐛 Removed forced `display: block` CSS rule that was blocking all interaction on mobile
+
+### Version 1.3.8
 - ✨ **Per-User Bot Management** — Each user can now manage their own Telegram bot token in "Bot Settings" tab
 - ✨ Admin panel refactored to **left-sliding sidebar** (320px desktop, full-width mobile)
 - ✨ Admin Panel now shows **Active Bots** section with owner usernames and token status

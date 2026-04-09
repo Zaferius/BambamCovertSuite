@@ -17,6 +17,8 @@ import { useAuth } from "./lib/auth-context";
 import { useAction } from "./lib/action-context";
 import { AuthScreen } from "./components/auth-screen";
 import { AdminPanel } from "./components/admin-panel";
+import { UserSettingsPanel } from "./components/user-settings-panel";
+import { APP_VERSION } from "@/lib/version";
 
 type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs" | "bot-settings";
 
@@ -53,6 +55,7 @@ function BambamLogo() {
 export default function HomePage() {
   const [activeView, setActiveView] = useState<ViewKey>("landing");
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const { user, logout, isLoading } = useAuth();
 
   // Track unseen finished jobs per tool
@@ -135,6 +138,19 @@ export default function HomePage() {
   return (
     <main className={`page-shell ${isLanding ? "landing-page-shell" : ""}`}>
       {user?.is_admin && <AdminPanel isOpen={adminPanelOpen} setIsOpen={setAdminPanelOpen} />}
+      {user && <UserSettingsPanel isOpen={settingsPanelOpen} setIsOpen={setSettingsPanelOpen} />}
+
+      {/* Settings FAB button */}
+      {user && (
+        <button
+          className="settings-fab"
+          onClick={() => setSettingsPanelOpen(true)}
+          title="Open Settings"
+          aria-label="Settings"
+        >
+          ⚙️
+        </button>
+      )}
 
       {!isLanding && (
         <header className="top-nav">
@@ -177,7 +193,7 @@ export default function HomePage() {
         <section className="landing-shell" style={{ display: isLanding ? "block" : "none" }}>
           <BambamLogo />
           <h1 className="landing-title">Bambam Converter Suite</h1>
-          <p className="landing-version">Version 1.3.5</p>
+          <p className="landing-version">Version {APP_VERSION}</p>
           <p className="landing-product">Bambam Product 2025</p>
 
           <div className="landing-actions">

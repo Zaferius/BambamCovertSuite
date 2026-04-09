@@ -237,6 +237,8 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
             sanitized_lines.append(line)
 
         if removed_container_name is not None:
+            # Strip YAML quotes if present (e.g. container_name: "foo" → foo)
+            removed_container_name = removed_container_name.strip('"').strip("'")
             # Keep temp compose next to the original so relative paths such as
             # `env_file: .env` continue to resolve correctly.
             with tempfile.NamedTemporaryFile(
@@ -254,6 +256,47 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         # If sanitization fails for any reason, fallback to original compose file.
         compose_file_for_scale = compose_file_path
 
+    # If a native container with a fixed container_name is running alongside our
+    # compose-scaled workers, count it as one of the desired workers rather than
+    # trying to remove it (Coolify/platform may restart it anyway).  We scale
+    # compose to (target - native_count) so the total always equals target_count.
+    native_running = 0
+    if removed_container_name:
+        try:
+            docker_bin = shutil.which("docker") or "docker"
+            # Use `docker inspect` for an exact name match — more reliable than
+            # `docker ps --filter name=` which does substring/regex matching that
+            # varies across Docker versions.
+            inspect_result = subprocess.run(
+                [docker_bin, "inspect", "--format", "{{.State.Running}}", removed_container_name],
+                capture_output=True, text=True, timeout=10, check=False,
+            )
+            if inspect_result.returncode == 0 and inspect_result.stdout.strip() == "true":
+                native_running = 1
+        except Exception:
+            native_running = 0
+
+    compose_scale_target = max(0, target_count - native_running)
+
+    # If no compose-managed workers are needed (target covered by native), stop
+    # any existing workspace-worker-* containers and return early.
+    if compose_scale_target == 0:
+        try:
+            docker_bin = shutil.which("docker") or "docker"
+            # Stop all compose-project workers (workspace-worker-*)
+            ps_result = subprocess.run(
+                [docker_bin, "ps", "-q",
+                 "--filter", "label=com.docker.compose.service=worker",
+                 "--filter", "label=com.docker.compose.project=workspace"],
+                capture_output=True, text=True, timeout=10, check=False,
+            )
+            for cid in [l.strip() for l in ps_result.stdout.splitlines() if l.strip()]:
+                subprocess.run([docker_bin, "rm", "-f", cid],
+                               capture_output=True, timeout=30, check=False)
+        except Exception:
+            pass
+        return 0, f"Native worker covers target; compose workers stopped."
+
     command = [
         *command_prefix,
         "-f",
@@ -262,7 +305,7 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         "-d",
         "--no-deps",
         "--scale",
-        f"worker={target_count}",
+        f"worker={compose_scale_target}",
         "worker",
     ]
     try:
@@ -277,23 +320,6 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         combined = (result.stdout or "")
         if result.stderr:
             combined = f"{combined}\n{result.stderr}".strip()
-        if result.returncode == 0 and removed_container_name:
-            # The original container had a fixed container_name which was removed
-            # from the temp compose so --scale could work. That original container
-            # is still running as an extra instance; stop and remove it now so the
-            # final count equals exactly target_count.
-            try:
-                docker_bin = shutil.which("docker") or "docker"
-                subprocess.run(
-                    [docker_bin, "stop", removed_container_name],
-                    capture_output=True, timeout=30, check=False,
-                )
-                subprocess.run(
-                    [docker_bin, "rm", "-f", removed_container_name],
-                    capture_output=True, timeout=30, check=False,
-                )
-            except Exception:
-                pass
         return result.returncode, combined[:4000]
     except FileNotFoundError as exc:
         return 1, f"Scale command executable not found: {exc}"
@@ -407,8 +433,11 @@ def list_workers(current_admin=Depends(get_current_active_admin)) -> dict:
     workers, online_count, busy_count, idle_count = _list_workers_with_online_flag()
     queue_size = _queue_size()
     target_count = get_worker_target_count()
-    actual_compose_count = _count_compose_workers()
-    effective_target_count = actual_compose_count if actual_compose_count is not None else target_count
+    # Use the Redis-stored user intent as the authoritative target.
+    # _count_compose_workers() only counts compose-managed workers and misses
+    # platform-native workers (e.g. Coolify-injected containers), causing
+    # the displayed target to be off by the number of native workers.
+    effective_target_count = target_count
     redis_ok = _redis_health()
     health = _resolve_worker_health(
         workers,

@@ -11,17 +11,25 @@ from rq import Retry
 from rq import Worker
 
 from app.core.config import get_settings
+from app.core.constants import (
+    DEFAULT_QUEUE_NAME,
+    DEFAULT_WORKER_SCALE_LOCK_KEY,
+    DEFAULT_WORKER_STATUS_KEY,
+    DEFAULT_WORKER_TARGET_COUNT_KEY,
+    JOB_STATUS_FAILED,
+    JOB_STATUS_PROCESSING,
+)
 
 
-WORKER_STATUS_KEY = "worker_status"
-WORKER_TARGET_COUNT_KEY = "worker_target_count"
-WORKER_SCALE_LOCK_KEY = "worker_scale_lock"
+WORKER_STATUS_KEY = DEFAULT_WORKER_STATUS_KEY
+WORKER_TARGET_COUNT_KEY = DEFAULT_WORKER_TARGET_COUNT_KEY
+WORKER_SCALE_LOCK_KEY = DEFAULT_WORKER_SCALE_LOCK_KEY
 
 
 def get_queue() -> Queue:
     settings = get_settings()
     connection = Redis.from_url(settings.redis_url)
-    return Queue("bambam-jobs", connection=connection)
+    return Queue(DEFAULT_QUEUE_NAME, connection=connection)
 
 
 def get_redis_connection() -> Redis:

@@ -1,13 +1,13 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
 import { authFetch } from "../lib/auth-fetch";
 import { useAction } from "../lib/action-context";
-
-const imageFormats = ["PNG", "JPG", "JPEG", "WEBP", "TIFF", "BMP", "GIF"] as const;
+import { buildApiUrl, isCompletedStatus, isFailedStatus } from "../lib/api";
+import { IMAGE_ACCEPT_ATTR, IMAGE_FORMATS, IMAGE_QUALITY_FORMATS, JOB_STATUS, POLL_INTERVAL_MS } from "../lib/app-constants";
 
 type ConversionResponse = {
   job_id: string;
@@ -31,7 +31,7 @@ export function ImageConverter() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [targetFormat, setTargetFormat] = useState<string>("PNG");
-  const qualityFormats = new Set(["JPG", "JPEG", "WEBP"]);
+  const qualityFormats = new Set<string>(IMAGE_QUALITY_FORMATS);
   const qualitySupported = qualityFormats.has(targetFormat);
   const [quality, setQuality] = useState<number>(90);
   const [isBatchResult, setIsBatchResult] = useState(false);
@@ -42,11 +42,6 @@ export function ImageConverter() {
   const [jobStatus, setJobStatus] = useState<string | null>(null);
 
   const { setAction } = useAction();
-
-  const apiBaseUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
-    [],
-  );
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -60,10 +55,10 @@ export function ImageConverter() {
 
   const pollJobStatus = async (jobId: string, isBatch: boolean) => {
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL_MS));
 
       const statusPath = isBatch ? `/batch/jobs/${jobId}` : `/image/jobs/${jobId}`;
-      const response = await authFetch(`${apiBaseUrl}${statusPath}`, { cache: "no-store" });
+      const response = await authFetch(buildApiUrl(statusPath), { cache: "no-store" });
 
       const payload = (await response.json()) as JobStatusResponse | { detail?: string };
 
@@ -74,12 +69,12 @@ export function ImageConverter() {
       const statusPayload = payload as JobStatusResponse;
       setJobStatus(statusPayload.status);
 
-      if (statusPayload.status === "completed") {
+      if (isCompletedStatus(statusPayload.status)) {
         setResult((previous) =>
           previous
             ? {
                 ...previous,
-                status: "completed",
+                status: JOB_STATUS.completed,
                 download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/image/jobs/${jobId}/download`,
                 output_filename: statusPayload.output_path?.split("/").pop() ?? null,
               }
@@ -88,7 +83,7 @@ export function ImageConverter() {
         return;
       }
 
-      if (statusPayload.status === "failed") {
+      if (isFailedStatus(statusPayload.status)) {
         throw new Error(statusPayload.error_message ?? "Image conversion failed.");
       }
     }
@@ -130,7 +125,7 @@ export function ImageConverter() {
 
       const endpoint = isBatch ? "/batch/image/jobs" : "/image/jobs";
       const response = await xhrPost(
-        `${apiBaseUrl}${endpoint}?${query.toString()}`,
+        buildApiUrl(`${endpoint}?${query.toString()}`),
         formData,
         (pct) => setUploadProgress(distributeProgress(selectedFiles, pct)),
       );
@@ -164,14 +159,14 @@ export function ImageConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Image file</span>
-          <input className="file-input" type="file" accept=".png,.jpg,.jpeg,.webp,.tiff,.bmp,.gif" multiple onChange={handleFileChange} />
+          <input className="file-input" type="file" accept={IMAGE_ACCEPT_ATTR} multiple onChange={handleFileChange} />
         </label>
 
         <div className="form-grid">
           <label className="field-group">
             <span>Target format</span>
             <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
-              {imageFormats.map((format) => (
+              {IMAGE_FORMATS.map((format) => (
                 <option key={format} value={format}>
                   {format}
                 </option>
@@ -236,7 +231,7 @@ export function ImageConverter() {
             </p>
           ) : null}
           {result.download_url ? (
-            <a className="primary-button inline-button" href={`${apiBaseUrl}${result.download_url}`} target="_blank" rel="noreferrer">
+            <a className="primary-button inline-button" href={buildApiUrl(result.download_url)} target="_blank" rel="noreferrer">
               Download {isBatchResult ? "zip bundle" : "converted file"}
             </a>
           ) : null}

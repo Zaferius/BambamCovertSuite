@@ -10,10 +10,16 @@ import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
 import { authFetch } from "../lib/auth-fetch";
+import { buildApiUrl, isCompletedStatus, isFailedStatus } from "../lib/api";
+import {
+  AUDIO_ACCEPT_ATTR,
+  AUDIO_BITRATES,
+  AUDIO_FORMATS,
+  AUDIO_TIME_FORMAT_PLACEHOLDER,
+  JOB_STATUS,
+  POLL_INTERVAL_MS,
+} from "../lib/app-constants";
 
-
-const audioFormats = ["MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"] as const;
-const audioBitrates = ["128k", "192k", "256k", "320k"] as const;
 
 type AudioConversionResponse = {
   job_id: string;
@@ -83,11 +89,6 @@ export function AudioConverter() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const waveformAreaRef = useRef<HTMLDivElement>(null);
-
-  const apiBaseUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
-    [],
-  );
 
   // ─── Waveform drawing ─────────────────────────────────────────────────────
 
@@ -227,10 +228,10 @@ export function AudioConverter() {
 
   const pollJobStatus = async (jobId: string, isBatch: boolean) => {
     for (let attempt = 0; attempt < 120; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL_MS));
 
       const statusPath = isBatch ? `/batch/jobs/${jobId}` : `/audio/jobs/${jobId}`;
-      const response = await authFetch(`${apiBaseUrl}${statusPath}`, { cache: "no-store" });
+      const response = await authFetch(buildApiUrl(statusPath), { cache: "no-store" });
       const payload = (await response.json()) as AudioJobStatusResponse | ApiErrorResponse;
 
       if (!response.ok) {
@@ -240,12 +241,12 @@ export function AudioConverter() {
       const statusPayload = payload as AudioJobStatusResponse;
       setJobStatus(statusPayload.status);
 
-      if (statusPayload.status === "completed") {
+      if (isCompletedStatus(statusPayload.status)) {
         setResult((previous: PollingResultUpdater) =>
           previous
             ? {
                 ...previous,
-                status: "completed",
+                status: JOB_STATUS.completed,
                 download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/audio/jobs/${jobId}/download`,
                 output_filename: statusPayload.output_path?.split("/").pop() ?? null,
               }
@@ -254,7 +255,7 @@ export function AudioConverter() {
         return;
       }
 
-      if (statusPayload.status === "failed") {
+      if (isFailedStatus(statusPayload.status)) {
         throw new Error(statusPayload.error_message ?? "Audio conversion failed.");
       }
     }
@@ -304,7 +305,7 @@ export function AudioConverter() {
 
       const endpoint = isBatch ? "/batch/audio/jobs" : "/audio/jobs";
       const response = await xhrPost(
-        `${apiBaseUrl}${endpoint}?${query.toString()}`,
+        buildApiUrl(`${endpoint}?${query.toString()}`),
         formData,
         (pct) => setUploadProgress(distributeProgress(selectedFiles, pct)),
       );
@@ -339,14 +340,14 @@ export function AudioConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Audio file</span>
-          <input className="file-input" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a,.aac" multiple onChange={handleFileChange} />
+          <input className="file-input" type="file" accept={AUDIO_ACCEPT_ATTR} multiple onChange={handleFileChange} />
         </label>
 
         <div className="form-grid">
           <label className="field-group">
             <span>Target format</span>
             <select value={targetFormat} onChange={(e: ChangeEvent<HTMLSelectElement>) => setTargetFormat(e.target.value)}>
-              {audioFormats.map((f) => (
+              {AUDIO_FORMATS.map((f) => (
                 <option key={f} value={f}>{f}</option>
               ))}
             </select>
@@ -355,7 +356,7 @@ export function AudioConverter() {
           <label className="field-group">
             <span>Bitrate</span>
             <select value={bitrate} onChange={(e: ChangeEvent<HTMLSelectElement>) => setBitrate(e.target.value)}>
-              {audioBitrates.map((v) => (
+              {AUDIO_BITRATES.map((v) => (
                 <option key={v} value={v}>{v}</option>
               ))}
             </select>
@@ -439,7 +440,7 @@ export function AudioConverter() {
                   type="text"
                   defaultValue={formatTime(trimStart)}
                   disabled={!trimEnabled}
-                  placeholder="00:00.0"
+                  placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
                   onBlur={(e) => {
                     const s = mmssToSeconds(e.target.value);
                     if (s !== null) setTrimStart(Number(Math.min(Math.max(s, 0), trimEnd - 0.1).toFixed(2)));
@@ -453,7 +454,7 @@ export function AudioConverter() {
                   type="text"
                   defaultValue={formatTime(trimEnd)}
                   disabled={!trimEnabled}
-                  placeholder="00:00.0"
+                  placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
                   onBlur={(e) => {
                     const s = mmssToSeconds(e.target.value);
                     if (s !== null) setTrimEnd(Number(Math.max(Math.min(s, audioDuration), trimStart + 0.1).toFixed(2)));
@@ -500,7 +501,7 @@ export function AudioConverter() {
           <p><strong>Status:</strong> {result.status}</p>
           {jobStatus ? <p><strong>Live status:</strong> {jobStatus}</p> : null}
           {result.download_url ? (
-            <a className="primary-button inline-button" href={`${apiBaseUrl}${result.download_url}`} target="_blank" rel="noreferrer">
+            <a className="primary-button inline-button" href={buildApiUrl(result.download_url)} target="_blank" rel="noreferrer">
               Download {isBatchResult ? "zip bundle" : "converted audio"}
             </a>
           ) : null}

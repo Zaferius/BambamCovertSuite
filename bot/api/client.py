@@ -13,15 +13,30 @@ from typing import Optional
 
 import httpx
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://api:8000")
-BOT_API_USERNAME = os.getenv("BOT_API_USERNAME", "admin")
-BOT_API_PASSWORD = os.getenv("BOT_API_PASSWORD", "bambam123")
+DOCUMENT_FORMATS = {"PDF", "DOCX", "ODT", "TXT"}
+JOB_STATUS_COMPLETED = "completed"
+JOB_STATUS_FAILED = "failed"
+
+DEFAULT_API_BASE_URL = "http://api:8000"
+DEFAULT_BOT_API_USERNAME = "admin"
+DEFAULT_BOT_API_PASSWORD = "bambam123"
+DEFAULT_HTTP_TIMEOUT_SECONDS = 30
+DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 300
+DEFAULT_JOB_POLL_INTERVAL_SECONDS = 3.0
+DEFAULT_JOB_POLL_MAX_WAIT_SECONDS = 600.0
+DEFAULT_OUTPUT_FILENAME = "output"
+AUTH_RETRY_ATTEMPTS = 2
+AUTH_LOGIN_PATH = "/auth/login"
+BOT_TOKEN_PATH = "/admin/bot-settings/token"
+
+API_BASE_URL = os.getenv("API_BASE_URL", DEFAULT_API_BASE_URL)
+BOT_API_USERNAME = os.getenv("BOT_API_USERNAME", DEFAULT_BOT_API_USERNAME)
+BOT_API_PASSWORD = os.getenv("BOT_API_PASSWORD", DEFAULT_BOT_API_PASSWORD)
 
 # Shared token state
 _token: Optional[str] = None
 _token_lock = asyncio.Lock()
 
-# Job-type → backend route prefix mapping
 JOB_TYPE_ROUTES = {
     "image": "image",
     "audio": "audio",
@@ -29,19 +44,18 @@ JOB_TYPE_ROUTES = {
     "document": "document",
 }
 
-# Supported formats per type (must match backend validation)
 SUPPORTED_FORMATS = {
-    "image": {"PNG", "JPG", "WEBP", "TIFF", "BMP", "GIF"},
-    "audio": {"MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"},
-    "video": {"MP4", "MOV", "MKV", "AVI", "WEBM"},
-    "document": {"PDF", "DOCX", "ODT", "TXT"},
+    "image": {"PNG", "JPG", "WEBP", "TIFF", "BMP", "GIF", "ICO"},
+    "audio": {"MP3", "WAV", "FLAC", "OGG", "M4A", "AAC", "WMA", "OPUS", "AIFF"},
+    "video": {"MP4", "MOV", "MKV", "AVI", "WEBM", "WMV", "FLV", "GIF"},
+    "document": DOCUMENT_FORMATS,
 }
 
 
 async def _login() -> str:
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as client:
         resp = await client.post(
-            f"{API_BASE_URL}/auth/login",
+            f"{API_BASE_URL}{AUTH_LOGIN_PATH}",
             data={"username": BOT_API_USERNAME, "password": BOT_API_PASSWORD},
         )
         resp.raise_for_status()
@@ -71,7 +85,7 @@ async def load_bot_token_from_db() -> str | None:
     import logging
     logger = logging.getLogger(__name__)
     try:
-        resp = await _request("get", "/admin/bot-settings/token", timeout=10)
+        resp = await _request("get", BOT_TOKEN_PATH, timeout=10)
         data = resp.json()
         token = data.get("telegram_bot_token")
         if token:
@@ -93,7 +107,7 @@ async def _request(
     timeout: int = 300,
 ) -> httpx.Response:
     """Make an authenticated request, retrying once on 401."""
-    for attempt in range(2):
+    for attempt in range(AUTH_RETRY_ATTEMPTS):
         token = await _get_token()
         headers = {"Authorization": f"Bearer {token}"}
         kwargs: dict = {"headers": headers}
@@ -144,7 +158,7 @@ async def download_job_result(file_type: str, job_id: str) -> tuple[bytes, str]:
 
     # Extract filename from Content-Disposition if present
     content_disposition = resp.headers.get("content-disposition", "")
-    output_filename = "output"
+    output_filename = DEFAULT_OUTPUT_FILENAME
     if "filename=" in content_disposition:
         output_filename = content_disposition.split("filename=")[-1].strip().strip('"')
 
@@ -154,8 +168,8 @@ async def download_job_result(file_type: str, job_id: str) -> tuple[bytes, str]:
 async def poll_until_done(
     job_id: str,
     *,
-    interval: float = 3.0,
-    max_wait: float = 600.0,
+    interval: float = DEFAULT_JOB_POLL_INTERVAL_SECONDS,
+    max_wait: float = DEFAULT_JOB_POLL_MAX_WAIT_SECONDS,
 ) -> dict:
     """
     Poll job status until completed or failed.
@@ -165,9 +179,9 @@ async def poll_until_done(
     while elapsed < max_wait:
         job = await get_job_status(job_id)
         status = job.get("status")
-        if status == "completed":
+        if status == JOB_STATUS_COMPLETED:
             return job
-        if status == "failed":
+        if status == JOB_STATUS_FAILED:
             raise RuntimeError(job.get("error_message") or "Job failed")
         await asyncio.sleep(interval)
         elapsed += interval

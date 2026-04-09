@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 
-VIDEO_FORMATS = {"MP4", "MOV", "MKV", "AVI", "WEBM", "GIF"}
+VIDEO_FORMATS = {"MP4", "MOV", "MKV", "AVI", "WEBM", "GIF", "WMV", "FLV"}
 
 
 def ensure_even_dimension(value: int) -> int:
@@ -77,8 +77,21 @@ class VideoConversionService:
             cmd += ["-r", str(fps)]
 
         ext = normalized_format.lower()
-        vcodec = "libx264" if ext in {"mp4", "mov", "mkv", "avi"} else ("libvpx-vp9" if ext == "webm" else "gif")
-        acodec = "aac" if ext in {"mp4", "mov", "mkv", "avi"} else ("libopus" if ext == "webm" else None)
+        if ext in {"mp4", "mov", "mkv", "avi"}:
+            vcodec = "libx264"
+            acodec = "aac"
+        elif ext == "webm":
+            vcodec = "libvpx-vp9"
+            acodec = "libopus"
+        elif ext == "wmv":
+            vcodec = "wmv2"
+            acodec = "wmav2"
+        elif ext == "flv":
+            vcodec = "flv"
+            acodec = "aac"
+        else:
+            vcodec = "gif"
+            acodec = None
 
         if ext != "gif":
             cmd += ["-c:v", vcodec]

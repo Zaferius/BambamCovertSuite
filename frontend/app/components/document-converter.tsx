@@ -5,17 +5,21 @@ import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
 import { authFetch } from "../lib/auth-fetch";
+import { buildApiUrl, isCompletedStatus, isFailedStatus } from "../lib/api";
+import { DOCUMENT_ACCEPT_ATTR, DOCUMENT_FORMATS, JOB_STATUS, POLL_INTERVAL_MS } from "../lib/app-constants";
 
-
-const documentFormats = ["PDF", "DOCX", "ODT", "TXT"] as const;
 
 const formatsBySource: Record<string, string[]> = {
   pdf:  ["ODT", "TXT"],
-  docx: ["PDF", "ODT", "TXT"],
-  doc:  ["PDF", "ODT", "TXT"],
+  docx: [...DOCUMENT_FORMATS],
+  doc:  [...DOCUMENT_FORMATS],
   odt:  ["PDF", "DOCX", "TXT"],
-  rtf:  ["PDF", "DOCX", "ODT", "TXT"],
+  rtf:  [...DOCUMENT_FORMATS],
   txt:  ["PDF", "DOCX", "ODT"],
+  xls:  ["PDF"],
+  xlsx: ["PDF"],
+  ppt:  ["PDF"],
+  pptx: ["PDF"],
 };
 
 type DocumentConversionResponse = {
@@ -46,14 +50,9 @@ export function DocumentConverter() {
   const [result, setResult] = useState<DocumentConversionResponse | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
-    [],
-  );
-
   const availableFormats = useMemo(() => {
     const ext = (selectedFile?.name.split(".").pop() ?? "").toLowerCase();
-    return formatsBySource[ext] ?? documentFormats.slice();
+    return formatsBySource[ext] ?? [...DOCUMENT_FORMATS];
   }, [selectedFile]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +64,7 @@ export function DocumentConverter() {
     setResult(null);
     setJobStatus(null);
     const ext = (file?.name.split(".").pop() ?? "").toLowerCase();
-    const allowed = formatsBySource[ext] ?? documentFormats.slice();
+    const allowed = formatsBySource[ext] ?? [...DOCUMENT_FORMATS];
     if (!allowed.includes(targetFormat)) {
       setTargetFormat(allowed[0] ?? "PDF");
     }
@@ -73,10 +72,10 @@ export function DocumentConverter() {
 
   const pollJobStatus = async (jobId: string, isBatch: boolean) => {
     for (let attempt = 0; attempt < 180; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL_MS));
 
       const statusPath = isBatch ? `/batch/jobs/${jobId}` : `/document/jobs/${jobId}`;
-      const response = await authFetch(`${apiBaseUrl}${statusPath}`, { cache: "no-store" });
+      const response = await authFetch(buildApiUrl(statusPath), { cache: "no-store" });
       const payload = (await response.json()) as DocumentJobStatusResponse | { detail?: string };
 
       if (!response.ok) {
@@ -86,12 +85,12 @@ export function DocumentConverter() {
       const statusPayload = payload as DocumentJobStatusResponse;
       setJobStatus(statusPayload.status);
 
-      if (statusPayload.status === "completed") {
+      if (isCompletedStatus(statusPayload.status)) {
         setResult((previous) =>
           previous
             ? {
                 ...previous,
-                status: "completed",
+                status: JOB_STATUS.completed,
                 download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/document/jobs/${jobId}/download`,
                 output_filename: statusPayload.output_path?.split("/").pop() ?? null,
               }
@@ -100,7 +99,7 @@ export function DocumentConverter() {
         return;
       }
 
-      if (statusPayload.status === "failed") {
+      if (isFailedStatus(statusPayload.status)) {
         throw new Error(statusPayload.error_message ?? "Document conversion failed.");
       }
     }
@@ -139,7 +138,7 @@ export function DocumentConverter() {
 
       const endpoint = isBatch ? "/batch/document/jobs" : "/document/jobs";
       const response = await xhrPost(
-        `${apiBaseUrl}${endpoint}?${query.toString()}`,
+        buildApiUrl(`${endpoint}?${query.toString()}`),
         formData,
         (pct) => setUploadProgress(distributeProgress(selectedFiles, pct)),
       );
@@ -172,7 +171,7 @@ export function DocumentConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Document file</span>
-          <input className="file-input" type="file" multiple accept=".pdf,.docx,.doc,.odt,.txt,.rtf" onChange={handleFileChange} />
+          <input className="file-input" type="file" multiple accept={DOCUMENT_ACCEPT_ATTR} onChange={handleFileChange} />
         </label>
 
         <label className="field-group">
@@ -229,7 +228,7 @@ export function DocumentConverter() {
             </p>
           ) : null}
           {result.download_url ? (
-            <a className="primary-button inline-button" href={`${apiBaseUrl}${result.download_url}`} target="_blank" rel="noreferrer">
+            <a className="primary-button inline-button" href={buildApiUrl(result.download_url)} target="_blank" rel="noreferrer">
               Download {isBatchResult ? "zip bundle" : "converted document"}
             </a>
           ) : null}

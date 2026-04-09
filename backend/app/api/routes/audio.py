@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.constants import DEFAULT_FALLBACK_UPLOAD_FILENAME, DEFAULT_OUTPUT_FILE_SUFFIX, JOB_STATUS_COMPLETED, JOB_STATUS_QUEUED
 from app.db.session import get_db
 from app.schemas.audio import AudioJobCreateResponse
 from app.schemas.job import JobResponse
@@ -52,7 +53,7 @@ async def create_audio_job(
 
     job = job_service.create_job(
         job_type="audio",
-        original_filename=file.filename or "upload.bin",
+        original_filename=file.filename or DEFAULT_FALLBACK_UPLOAD_FILENAME,
         stored_filename=input_path.name,
         input_path=str(input_path),
         user_id=current_user.id,
@@ -72,7 +73,7 @@ async def create_audio_job(
 
     return AudioJobCreateResponse(
         job_id=job.id,
-        status="queued",
+        status=JOB_STATUS_QUEUED,
         target_format=normalized_format,
         bitrate=bitrate,
         original_filename=job.original_filename,
@@ -100,12 +101,12 @@ def download_audio_result(job_id: str, db: Session = Depends(get_db)) -> FileRes
     if job is None or job.job_type != "audio":
         raise HTTPException(status_code=404, detail="Audio job not found")
 
-    if job.status != "completed" or not job.output_path:
+    if job.status != JOB_STATUS_COMPLETED or not job.output_path:
         raise HTTPException(status_code=409, detail="Audio job is not ready for download")
 
     output_path = Path(job.output_path)
     if not output_path.exists():
         raise HTTPException(status_code=404, detail="Converted file is missing")
 
-    clean_name = Path(job.original_filename).stem + "_converted" + output_path.suffix
+    clean_name = Path(job.original_filename).stem + DEFAULT_OUTPUT_FILE_SUFFIX + output_path.suffix
     return FileResponse(path=output_path, filename=clean_name)

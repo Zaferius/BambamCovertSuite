@@ -1,5 +1,7 @@
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from "./app-constants";
+
 export async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("bambam_token") : null;
+  const token = typeof window !== "undefined" ? localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) : null;
   const headers = new Headers(init?.headers);
 
   if (token) {
@@ -15,8 +17,8 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
 
   if (response.status === 401 && typeof window !== "undefined") {
     // If token is invalid or expired, clear it
-    localStorage.removeItem("bambam_token");
-    localStorage.removeItem("bambam_user");
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
     window.location.reload();
   }
 

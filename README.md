@@ -287,9 +287,9 @@ A Telegram bot service (`[bot/](bot/)`) provides an alternative interface to the
 **Supported Conversions:**
 | Type | Input Formats | Output Formats |
 |------|---------------|----------------|
-| 🖼 Image | PNG, JPG, JPEG, WEBP, BMP, GIF, TIFF | PNG, JPG, WEBP |
-| 🎵 Audio | MP3, WAV, FLAC, OGG, M4A, AAC | MP3, WAV |
-| 🎬 Video | MP4, MOV, MKV, AVI, WEBM, GIF | MP4 |
+| 🖼 Image | PNG, JPG, JPEG, WEBP, BMP, GIF, TIFF, ICO | PNG, JPG, WEBP, TIFF, BMP, GIF, ICO |
+| 🎵 Audio | MP3, WAV, FLAC, OGG, M4A, AAC, WMA, OPUS, AIFF | MP3, WAV, FLAC, OGG, M4A, AAC, WMA, OPUS, AIFF |
+| 🎬 Video | MP4, MOV, MKV, AVI, WEBM, GIF, WMV, FLV | MP4, MOV, MKV, AVI, WEBM, GIF, WMV, FLV |
 | 📄 Document | PDF, DOCX, DOC, TXT, RTF, ODT | PDF |
 
 ### 🚀 Quick Start (3 Steps)
@@ -489,7 +489,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 ## ✨ Features
 
 ### 🖼️ Image Converter
-- **Supported Formats**: PNG, JPG, JPEG, BMP, GIF, TIFF, WEBP, ICO, SVG
+- **Supported Formats**: PNG, JPG, JPEG, BMP, GIF, TIFF, WEBP, ICO
 - **Batch Processing**: Convert multiple images at once
 - **Quality Control**: Adjust output quality (1-100)
 - **Resize Options**: Width, height, and percentage-based scaling
@@ -510,7 +510,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - **Folder Scanning**: Recursively scan folders for videos
 
 ### 🎵 Sound Converter
-- **Supported Formats**: MP3, WAV, OGG, FLAC, AAC, M4A, WMA
+- **Supported Formats**: MP3, WAV, OGG, FLAC, AAC, M4A, WMA, OPUS, AIFF
 - **Audio Settings**:
   - Bitrate control (64-320 kbps)
   - Sample rate adjustment
@@ -519,7 +519,8 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - **Folder Support**: Recursive folder scanning
 
 ### 📄 Document Converter
-- **Supported Formats**: PDF, DOCX, DOC, TXT, RTF, ODT
+- **Supported Input Formats**: PDF, DOCX, DOC, TXT, RTF, ODT, XLS, XLSX, PPT, PPTX
+- **Supported Output Formats**: PDF, DOCX, ODT, TXT
 - **Conversion Engines**:
   - LibreOffice (recommended)
   - Microsoft Word (if installed)

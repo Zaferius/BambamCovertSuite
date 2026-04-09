@@ -725,7 +725,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       <div className="admin-section">
         <h4>Scale Workers</h4>
         <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: "0.78rem" }}>
-          Worker count sets the exact final total (not additive).
+          Worker count
         </p>
         <div className="workers-scale-row">
           <input

@@ -11,6 +11,7 @@ IMAGE_FORMAT_MAP: dict[str, tuple[str, str]] = {
     "TIFF": ("TIFF", "tiff"),
     "BMP": ("BMP", "bmp"),
     "GIF": ("GIF", "gif"),
+    "ICO": ("ICO", "ico"),
 }
 
 

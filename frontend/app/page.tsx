@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import bambamLogo from "@/bambam_logo.png";
 import { authFetch } from "./lib/auth-fetch";
@@ -17,6 +17,8 @@ import { useAuth } from "./lib/auth-context";
 import { useAction } from "./lib/action-context";
 import { AuthScreen } from "./components/auth-screen";
 import { APP_VERSION } from "@/lib/version";
+import { buildApiUrl } from "./lib/api";
+import { USER_ACTIVITY_PING_INTERVAL_MS } from "./lib/app-constants";
 
 type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
 
@@ -50,11 +52,6 @@ export default function HomePage() {
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const { user, logout, isLoading } = useAuth();
 
-  const apiBaseUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
-    [],
-  );
-
   const { action } = useAction();
 
   useEffect(() => {
@@ -62,17 +59,17 @@ export default function HomePage() {
 
     const pingServer = async () => {
       try {
-        await authFetch(`${apiBaseUrl}/auth/ping?action=${encodeURIComponent(action)}`, { method: "POST" });
+        await authFetch(buildApiUrl(`/auth/ping?action=${encodeURIComponent(action)}`), { method: "POST" });
       } catch {}
     };
 
     pingServer();
-    const pingInterval = setInterval(pingServer, 10000);
+    const pingInterval = setInterval(pingServer, USER_ACTIVITY_PING_INTERVAL_MS);
 
     return () => {
       clearInterval(pingInterval);
     };
-  }, [user, apiBaseUrl, action]);
+  }, [user, action]);
 
   if (isLoading) return null;
   if (!user) return <AuthScreen />;

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.constants import APP_DESCRIPTION, APP_VERSION
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import engine, SessionLocal
@@ -15,8 +16,8 @@ settings = get_settings()
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.1.0",
-    description="Phase 1 API skeleton for the self-hosted Bambam web app.",
+    version=APP_VERSION,
+    description=APP_DESCRIPTION,
 )
 
 app.add_middleware(

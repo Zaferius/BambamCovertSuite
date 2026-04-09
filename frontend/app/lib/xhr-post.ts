@@ -1,3 +1,5 @@
+import { AUTH_TOKEN_STORAGE_KEY } from "./app-constants";
+
 export type XhrResponse = {
   ok: boolean;
   status: number;
@@ -16,7 +18,7 @@ export function xhrPost(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
 
-    const token = localStorage.getItem("bambam_token");
+    const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
     if (token) {
       xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     }

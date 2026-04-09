@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 
-AUDIO_FORMATS = {"MP3", "WAV", "FLAC", "OGG", "M4A", "AAC"}
+AUDIO_FORMATS = {"MP3", "WAV", "FLAC", "OGG", "M4A", "AAC", "WMA", "OPUS", "AIFF"}
 AUDIO_BITRATES = {"128k", "192k", "256k", "320k"}
 
 
@@ -52,7 +52,17 @@ class AudioConversionService:
         if trim_enabled and trim_end is not None and trim_start is not None:
             cmd += ["-to", f"{trim_end - trim_start}"]
 
-        cmd += ["-b:a", bitrate, str(output_path)]
+        ext = normalized_format.lower()
+        cmd += ["-b:a", bitrate]
+
+        if ext == "wma":
+            cmd += ["-c:a", "wmav2"]
+        elif ext == "opus":
+            cmd += ["-c:a", "libopus"]
+        elif ext == "aiff":
+            cmd += ["-c:a", "pcm_s16be"]
+
+        cmd += [str(output_path)]
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if result.returncode != 0:

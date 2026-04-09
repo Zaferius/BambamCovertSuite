@@ -1,13 +1,13 @@
 "use client";
 
-import { ChangeEvent, FormEvent, MouseEvent as ReactMouseEvent, SyntheticEvent, useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { ChangeEvent, FormEvent, MouseEvent as ReactMouseEvent, SyntheticEvent, useEffect, useState, useRef, useCallback } from "react";
 import { ConversionLoader } from "./conversion-loader";
 import { type FileUploadItem, UploadProgressPanel } from "./upload-progress";
 import { distributeProgress, xhrPost } from "../lib/xhr-post";
 import { authFetch } from "../lib/auth-fetch";
 import { useAction } from "../lib/action-context";
-
-const videoFormats = ["MP4", "AVI", "MKV", "MOV", "WMV", "FLV", "WEBM", "GIF"] as const;
+import { buildApiUrl, isCompletedStatus, isFailedStatus } from "../lib/api";
+import { AUDIO_TIME_FORMAT_PLACEHOLDER, JOB_STATUS, POLL_INTERVAL_MS, VIDEO_ACCEPT_ATTR, VIDEO_FORMATS } from "../lib/app-constants";
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -88,11 +88,6 @@ export function VideoConverter() {
   } | null>(null);
 
   const { setAction } = useAction();
-
-  const apiBaseUrl = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
-    [],
-  );
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -418,10 +413,10 @@ export function VideoConverter() {
 
   const pollJobStatus = async (jobId: string, isBatch: boolean) => {
     for (let attempt = 0; attempt < 300; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL_MS));
 
       const statusPath = isBatch ? `/batch/jobs/${jobId}` : `/video/jobs/${jobId}`;
-      const response = await authFetch(`${apiBaseUrl}${statusPath}`, {
+      const response = await authFetch(buildApiUrl(statusPath), {
         cache: "no-store",
       });
 
@@ -434,12 +429,12 @@ export function VideoConverter() {
       const statusPayload = payload as VideoJobStatusResponse;
       setJobStatus(statusPayload.status);
 
-      if (statusPayload.status === "completed") {
+      if (isCompletedStatus(statusPayload.status)) {
         setResult((previous) =>
           previous
             ? {
                 ...previous,
-                status: "completed",
+                status: JOB_STATUS.completed,
                 download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/video/jobs/${jobId}/download`,
                 output_filename: statusPayload.output_path?.split("/").pop() ?? null,
               }
@@ -448,7 +443,7 @@ export function VideoConverter() {
         return;
       }
 
-      if (statusPayload.status === "failed") {
+      if (isFailedStatus(statusPayload.status)) {
         throw new Error(statusPayload.error_message ?? "Video conversion failed.");
       }
     }
@@ -510,7 +505,7 @@ export function VideoConverter() {
 
       const endpoint = isBatch ? "/batch/video/jobs" : "/video/jobs";
       const response = await xhrPost(
-        `${apiBaseUrl}${endpoint}?${query.toString()}`,
+        buildApiUrl(`${endpoint}?${query.toString()}`),
         formData,
         (pct) => setUploadProgress(distributeProgress(selectedFiles, pct)),
       );
@@ -544,14 +539,14 @@ export function VideoConverter() {
       <form className="converter-form" onSubmit={handleSubmit}>
         <label className="field-group">
           <span>Video file</span>
-          <input className="file-input" type="file" accept=".mp4,.mov,.mkv,.avi,.webm,.gif" multiple onChange={handleFileChange} />
+          <input className="file-input" type="file" accept={VIDEO_ACCEPT_ATTR} multiple onChange={handleFileChange} />
         </label>
 
         <div className="form-grid">
           <label className="field-group">
             <span>Target format</span>
             <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
-              {videoFormats.map((format) => (
+              {VIDEO_FORMATS.map((format) => (
                 <option key={format} value={format}>
                   {format}
                 </option>
@@ -694,7 +689,7 @@ export function VideoConverter() {
                     type="text"
                     defaultValue={formatTime(trimStart)}
                     disabled={!trimEnabled || videoDuration <= 0}
-                    placeholder="00:00.0"
+                    placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
                     onBlur={(e) => {
                       const s = mmssToSeconds(e.target.value);
                       if (s !== null) {
@@ -713,7 +708,7 @@ export function VideoConverter() {
                     type="text"
                     defaultValue={formatTime(trimEnd)}
                     disabled={!trimEnabled || videoDuration <= 0}
-                    placeholder="00:00.0"
+                    placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
                     onBlur={(e) => {
                       const s = mmssToSeconds(e.target.value);
                       if (s !== null) {
@@ -780,7 +775,7 @@ export function VideoConverter() {
             </p>
           ) : null}
           {result.download_url ? (
-            <a className="primary-button inline-button" href={`${apiBaseUrl}${result.download_url}`} target="_blank" rel="noreferrer">
+            <a className="primary-button inline-button" href={buildApiUrl(result.download_url)} target="_blank" rel="noreferrer">
               Download {isBatchResult ? "zip bundle" : "converted video"}
             </a>
           ) : null}

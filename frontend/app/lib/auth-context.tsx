@@ -1,6 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { buildApiUrl } from "./api";
+import { AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY } from "./app-constants";
 
 type User = {
   id: string;
@@ -24,8 +26,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("bambam_token");
-    const storedUser = localStorage.getItem("bambam_user");
+    const storedToken = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    const storedUser = localStorage.getItem(AUTH_USER_STORAGE_KEY);
     if (storedToken && storedUser) {
       setToken(storedToken);
       try {
@@ -39,16 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = (newToken: string, newUser: User) => {
-    localStorage.setItem("bambam_token", newToken);
-    localStorage.setItem("bambam_user", JSON.stringify(newUser));
+    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, newToken);
+    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
     if (token) {
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-      fetch(`${apiBaseUrl}/auth/logout`, {
+      fetch(buildApiUrl("/auth/logout"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -56,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }).catch(() => undefined);
     }
 
-    localStorage.removeItem("bambam_token");
-    localStorage.removeItem("bambam_user");
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
     setToken(null);
     setUser(null);
   };

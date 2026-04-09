@@ -58,7 +58,17 @@ async def create_audio_job(
         user_id=current_user.id,
     )
 
-    enqueue_job(run_audio_conversion, job.id, normalized_format, bitrate, trim_enabled, trim_start, trim_end, retry_max=1)
+    enqueue_job(
+        run_audio_conversion,
+        job.id,
+        normalized_format,
+        bitrate,
+        trim_enabled,
+        trim_start,
+        trim_end,
+        retry_max=1,
+        job_type=job.job_type,
+    )
 
     return AudioJobCreateResponse(
         job_id=job.id,

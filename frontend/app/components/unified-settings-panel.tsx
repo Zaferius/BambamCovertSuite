@@ -31,6 +31,30 @@ type ActiveBot = {
   updated_at: string;
 };
 
+type WorkerItem = {
+  worker_id: string;
+  hostname?: string;
+  pid?: number;
+  status: "idle" | "busy" | "offline";
+  online: boolean;
+  current_job_id?: string | null;
+  current_job_type?: string | null;
+  last_seen?: number;
+  started_at?: number;
+  last_error?: string | null;
+};
+
+type WorkerSummary = {
+  target_workers: number;
+  online_workers: number;
+  busy_workers: number;
+  idle_workers: number;
+  queue_size: number;
+  health: "healthy" | "degraded" | "down";
+  api_ok?: boolean;
+  redis_ok?: boolean;
+};
+
 type UserJob = {
   id: string;
   job_type: string;
@@ -41,7 +65,7 @@ type UserJob = {
   updated_at: string;
 };
 
-type SubView = "users" | "storage" | "bot-settings" | "account";
+type SubView = "users" | "storage" | "bot-settings" | "workers" | "account";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -71,6 +95,7 @@ export function UnifiedSettingsPanel({ isOpen, setIsOpen }: Props) {
   const menuItems: Array<{ key: SubView; label: string; icon: string; adminOnly?: boolean }> = [
     { key: "account", label: "Account", icon: "👤" },
     ...(isAdmin ? [{ key: "users" as SubView, label: "Users", icon: "👥", adminOnly: true }] : []),
+    ...(isAdmin ? [{ key: "workers" as SubView, label: "Workers", icon: "🧰", adminOnly: true }] : []),
     { key: "storage", label: "Storage", icon: "🗂️" },
     { key: "bot-settings", label: "Bot Settings", icon: "🤖" },
   ];
@@ -114,6 +139,8 @@ export function UnifiedSettingsPanel({ isOpen, setIsOpen }: Props) {
             <AccountView user={user} logout={logout} />
           ) : activeSubView === "users" && isAdmin ? (
             <UsersView isOpen={isOpen} apiBaseUrl={apiBaseUrl} />
+          ) : activeSubView === "workers" && isAdmin ? (
+            <WorkersView isOpen={isOpen} apiBaseUrl={apiBaseUrl} />
           ) : activeSubView === "storage" ? (
             isAdmin
               ? <AdminStorageView apiBaseUrl={apiBaseUrl} isOpen={isOpen} />
@@ -556,6 +583,176 @@ function UserBotSettingsView({ apiBaseUrl }: { apiBaseUrl: string }) {
           <li>Enable your bot and save</li>
           <li>Find your bot on Telegram → send /start</li>
         </ol>
+      </div>
+    </div>
+  );
+}
+
+// ── Workers Sub-View (Admin only) ─────────────────────────────────────────────
+
+function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: string }) {
+  const [workers, setWorkers] = useState<WorkerItem[]>([]);
+  const [summary, setSummary] = useState<WorkerSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [scaleTarget, setScaleTarget] = useState<string>("");
+  const [isScaling, setIsScaling] = useState(false);
+  const [message, setMessage] = useState<string>("");
+
+  const fetchWorkers = async () => {
+    setIsLoading(true);
+    try {
+      const res = await authFetch(`${apiBaseUrl}/admin/workers`, { cache: "no-store" });
+      if (!res.ok) {
+        setWorkers([]);
+        setSummary(null);
+        return;
+      }
+      const data = await res.json() as { workers: WorkerItem[]; summary: WorkerSummary };
+      setWorkers(data.workers ?? []);
+      setSummary(data.summary ?? null);
+      if (data.summary && !scaleTarget) setScaleTarget(String(data.summary.target_workers));
+    } catch {
+      setWorkers([]);
+      setSummary(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void fetchWorkers();
+    const id = window.setInterval(() => {
+      void fetchWorkers();
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [isOpen, apiBaseUrl]);
+
+  const healthColor = summary?.health === "healthy"
+    ? "#22c55e"
+    : summary?.health === "degraded"
+      ? "#f59e0b"
+      : "#ef4444";
+
+  const handleScale = async () => {
+    const parsed = Number(scaleTarget);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setMessage("✗ Enter a valid worker count");
+      return;
+    }
+    setIsScaling(true);
+    setMessage("");
+    try {
+      const res = await authFetch(`${apiBaseUrl}/admin/workers/scale`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_count: parsed }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(`✗ ${payload?.detail ?? "Scale failed"}`);
+        return;
+      }
+      setMessage("✓ Scale command applied");
+      await fetchWorkers();
+    } catch {
+      setMessage("✗ Scale command error");
+    } finally {
+      setIsScaling(false);
+    }
+  };
+
+  return (
+    <div className="admin-subview">
+      <div className="admin-section">
+        <h4>Workers Overview</h4>
+        {summary ? (
+          <div className="workers-summary-grid">
+            <div className="workers-summary-card"><span>Target</span><strong>{summary.target_workers}</strong></div>
+            <div className="workers-summary-card"><span>Online</span><strong>{summary.online_workers}</strong></div>
+            <div className="workers-summary-card"><span>Busy</span><strong>{summary.busy_workers}</strong></div>
+            <div className="workers-summary-card"><span>Queue</span><strong>{summary.queue_size}</strong></div>
+            <div className="workers-summary-card">
+              <span>API</span>
+              <strong style={{ color: summary.api_ok ? "#22c55e" : "#ef4444" }}>{summary.api_ok ? "OK" : "DOWN"}</strong>
+            </div>
+            <div className="workers-summary-card">
+              <span>Redis</span>
+              <strong style={{ color: summary.redis_ok ? "#22c55e" : "#ef4444" }}>{summary.redis_ok ? "OK" : "DOWN"}</strong>
+            </div>
+            <div className="workers-summary-card" style={{ borderColor: `${healthColor}66` }}>
+              <span>Health</span>
+              <strong style={{ color: healthColor, textTransform: "capitalize" }}>{summary.health}</strong>
+            </div>
+          </div>
+        ) : (
+          <p className="admin-empty">No worker summary available</p>
+        )}
+      </div>
+
+      <div className="admin-section">
+        <h4>Scale Workers</h4>
+        <div className="workers-scale-row">
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={scaleTarget}
+            onChange={(e) => setScaleTarget(e.target.value)}
+            className="workers-scale-input"
+          />
+          <button
+            className="admin-panel-toggle"
+            onClick={() => void handleScale()}
+            disabled={isScaling}
+          >
+            {isScaling ? "Scaling..." : "Apply Scale"}
+          </button>
+        </div>
+        {message && (
+          <p style={{ margin: "8px 0 0", fontSize: "0.82rem", color: message.includes("✓") ? "#22c55e" : "#f87171" }}>
+            {message}
+          </p>
+        )}
+      </div>
+
+      <div className="admin-section">
+        <div className="admin-section-header">
+          <h4>Worker List</h4>
+          <button className="admin-panel-toggle" onClick={() => void fetchWorkers()} disabled={isLoading}>
+            {isLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {isLoading && workers.length === 0 ? (
+          <p className="admin-empty">Loading workers...</p>
+        ) : workers.length === 0 ? (
+          <p className="admin-empty">No workers reported yet</p>
+        ) : (
+          <ul className="admin-user-list">
+            {workers.map((w) => {
+              const isBusy = w.status === "busy";
+              const isOnline = w.online;
+              return (
+                <li key={w.worker_id} className="admin-user-item">
+                  <div className="admin-user-info">
+                    <span className="admin-user-name" style={{ fontSize: "0.84rem" }}>{w.worker_id}</span>
+                    <div className={`status-dot ${isOnline ? (isBusy ? "dot-active" : "dot-idle") : "dot-offline"}`} />
+                  </div>
+                  <span className="admin-user-action">
+                    {isOnline ? (isBusy ? "Busy" : "Idle") : "Offline"}
+                  </span>
+                  <span className="admin-user-action">
+                    Job: {w.current_job_id ? `${w.current_job_type ?? "job"} (${w.current_job_id.slice(0, 8)}...)` : "None"}
+                  </span>
+                  <span className="admin-user-action">
+                    Last seen: {w.last_seen ? new Date(w.last_seen * 1000).toLocaleString() : "-"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );

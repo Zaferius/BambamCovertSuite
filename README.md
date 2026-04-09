@@ -24,6 +24,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Manual cleanup endpoint for finished and stale jobs
 - **Unified Settings Panel** (⚙️ button, left-sliding sidebar):
   - Admin users see: Account info, Active Users monitor, File Storage manager (all files), System & Personal Bot Settings
+  - Admin users now also get a **Workers** monitor: live worker list (online/offline, idle/busy, current job), queue size, API/Redis health, and admin scale control
   - Regular users see: Account info, Personal Storage (own jobs only), Personal Bot Settings
   - File Storage: admins can view/delete all files with owner tracking; users can download their completed jobs
   - One-click Delete All button for admins to cleanup disk space
@@ -66,6 +67,7 @@ This repository now includes an in-progress self-hosted web application stack al
   - Account section: username, role indicator (👑 for admin), logout button
   - **Admin-only sections**:
     - Users: real-time list of active users with status (idle/processing), 3s refresh
+    - Workers: real-time worker telemetry + scale control (target worker count, health summary, queue pressure)
     - Storage: browse uploads/outputs with owner tracking, view/delete individual files, one-click Delete All
     - Bot Settings: list of active user bots + system-wide bot config (legacy)
   - **User sections**:
@@ -659,6 +661,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ### Version 1.4.1
 - ✨ Removed completed-job notification `!` badges from both landing quick buttons and top navbar tabs
 - ✨ Refined landing quick-tool grid so **Jobs** uses standard button size and is positioned in the right-column slot under **Document Converter**
+- ✨ Added **Workers** admin monitor in unified settings: online/offline workers, busy/idle state, current job info, queue size, API/Redis health cards
+- ✨ Added admin worker scaling endpoint and UI control backed by Docker Compose (`worker` replicas)
 
 ### Version 1.4.0 (Latest)
 - ✨ **Unified Settings Panel** — Single ⚙️ button opens all settings for both admins and users

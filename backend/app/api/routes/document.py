@@ -45,7 +45,14 @@ async def create_document_job(
         user_id=current_user.id,
     )
 
-    enqueue_job(run_document_conversion, job.id, normalized_format, job_timeout=storage_service.settings.queue_document_timeout, retry_max=1)
+    enqueue_job(
+        run_document_conversion,
+        job.id,
+        normalized_format,
+        job_timeout=storage_service.settings.queue_document_timeout,
+        retry_max=1,
+        job_type=job.job_type,
+    )
 
     return DocumentJobCreateResponse(
         job_id=job.id,

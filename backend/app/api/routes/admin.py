@@ -1,4 +1,6 @@
 import shutil
+import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +16,13 @@ from app.models.job import Job
 from app.models.user import User
 from app.models.bot_settings import BotSettings
 from app.services.cleanup_service import CleanupService
+from app.worker import (
+    WORKER_SCALE_LOCK_KEY,
+    get_queue,
+    get_worker_target_count,
+    list_worker_statuses,
+    set_worker_target_count,
+)
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -23,6 +32,89 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 class BotSettingsUpdate(BaseModel):
     telegram_bot_token: str | None = None
     bot_enabled: bool | None = None
+
+
+class WorkerScaleRequest(BaseModel):
+    target_count: int
+
+
+def _resolve_worker_health(
+    workers: list[dict],
+    queue_size: int,
+    expected_workers: int,
+    api_ok: bool,
+    redis_ok: bool,
+) -> str:
+    if not api_ok or not redis_ok:
+        return "down"
+    online_workers = [w for w in workers if w.get("online")]
+    if not online_workers:
+        return "down"
+    if expected_workers > 0 and len(online_workers) < expected_workers:
+        return "degraded"
+    if queue_size > 0 and not any(w.get("status") == "busy" for w in online_workers):
+        return "degraded"
+    return "healthy"
+
+
+def _list_workers_with_online_flag() -> tuple[list[dict], int, int, int]:
+    settings = get_settings()
+    now = int(time.time())
+    threshold = settings.worker_offline_threshold_seconds
+    workers = list_worker_statuses()
+
+    for worker in workers:
+        last_seen = int(worker.get("last_seen", 0) or 0)
+        worker["online"] = (now - last_seen) <= threshold
+        worker["status"] = worker.get("status", "idle")
+        if not worker["online"]:
+            worker["status"] = "offline"
+
+    online_count = sum(1 for w in workers if w.get("online"))
+    busy_count = sum(1 for w in workers if w.get("online") and w.get("status") == "busy")
+    idle_count = sum(1 for w in workers if w.get("online") and w.get("status") == "idle")
+    workers.sort(key=lambda w: (not w.get("online"), w.get("worker_id", "")))
+    return workers, online_count, busy_count, idle_count
+
+
+def _queue_size() -> int:
+    try:
+        return len(get_queue())
+    except Exception:
+        return 0
+
+
+def _redis_health() -> bool:
+    try:
+        return bool(get_queue().connection.ping())
+    except Exception:
+        return False
+
+
+def _run_compose_scale(target_count: int) -> tuple[int, str]:
+    settings = get_settings()
+    command = [
+        settings.worker_scale_command,
+        "-f",
+        settings.worker_compose_file,
+        "up",
+        "-d",
+        "--scale",
+        f"worker={target_count}",
+        "worker",
+    ]
+    result = subprocess.run(
+        command,
+        cwd=settings.worker_compose_project_dir,
+        capture_output=True,
+        text=True,
+        timeout=settings.worker_scale_timeout_seconds,
+        check=False,
+    )
+    combined = (result.stdout or "")
+    if result.stderr:
+        combined = f"{combined}\n{result.stderr}".strip()
+    return result.returncode, combined[:4000]
 
 
 # ============ Bot Settings Endpoints ============
@@ -113,6 +205,68 @@ def update_bot_settings(
         "bot_enabled": row.bot_enabled,
         "has_token": bool(row.telegram_bot_token),
     }
+
+
+@router.get("/workers")
+def list_workers(current_admin=Depends(get_current_active_admin)) -> dict:
+    workers, online_count, busy_count, idle_count = _list_workers_with_online_flag()
+    queue_size = _queue_size()
+    target_count = get_worker_target_count()
+    redis_ok = _redis_health()
+    health = _resolve_worker_health(
+        workers,
+        queue_size,
+        target_count,
+        api_ok=True,
+        redis_ok=redis_ok,
+    )
+    return {
+        "workers": workers,
+        "summary": {
+            "target_workers": target_count,
+            "online_workers": online_count,
+            "busy_workers": busy_count,
+            "idle_workers": idle_count,
+            "queue_size": queue_size,
+            "health": health,
+            "api_ok": True,
+            "redis_ok": redis_ok,
+        },
+    }
+
+
+@router.post("/workers/scale")
+def scale_workers(payload: WorkerScaleRequest, current_admin=Depends(get_current_active_admin)) -> dict:
+    settings = get_settings()
+    if not settings.worker_scale_enabled:
+        raise HTTPException(status_code=503, detail="Worker scaling is disabled")
+
+    if payload.target_count < settings.worker_min_count or payload.target_count > settings.worker_max_count:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"target_count must be between {settings.worker_min_count} and "
+                f"{settings.worker_max_count}"
+            ),
+        )
+
+    conn = get_queue().connection
+    lock_ok = conn.set(WORKER_SCALE_LOCK_KEY, "1", nx=True, ex=60)
+    if not lock_ok:
+        raise HTTPException(status_code=409, detail="Another scaling operation is in progress")
+
+    try:
+        code, output = _run_compose_scale(payload.target_count)
+        if code != 0:
+            raise HTTPException(status_code=500, detail=f"Scale command failed: {output or 'unknown error'}")
+        set_worker_target_count(payload.target_count)
+        return {
+            "message": "Workers scaled successfully",
+            "target_workers": payload.target_count,
+            "command_output": output,
+        }
+    finally:
+        conn.delete(WORKER_SCALE_LOCK_KEY)
 
 
 # ============ Utility Functions ============

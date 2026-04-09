@@ -47,7 +47,7 @@ async def create_image_job(
         user_id=current_user.id,
     )
 
-    enqueue_job(run_image_conversion, job.id, normalized_format, quality, retry_max=1)
+    enqueue_job(run_image_conversion, job.id, normalized_format, quality, retry_max=1, job_type=job.job_type)
 
     return ImageJobCreateResponse(
         job_id=job.id,

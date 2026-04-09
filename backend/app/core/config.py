@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     queue_document_timeout: str = "60m"
     queue_result_ttl_seconds: int = 86400
     queue_failure_ttl_seconds: int = 604800
+    worker_heartbeat_interval_seconds: int = 5
+    worker_offline_threshold_seconds: int = 15
+    worker_scale_enabled: bool = True
+    worker_scale_command: str = "docker-compose"
+    worker_compose_file: str = "/workspace/docker-compose.yml"
+    worker_compose_project_dir: str = "/workspace"
+    worker_scale_timeout_seconds: int = 120
+    worker_min_count: int = 1
+    worker_max_count: int = 8
+    worker_target_default: int = 1
 
     secret_key: str = "bambam-super-secret-key-change-this-in-production"
     algorithm: str = "HS256"

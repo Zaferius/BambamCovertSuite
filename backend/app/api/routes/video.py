@@ -84,6 +84,7 @@ async def create_video_job(
         trim_end,
         job_timeout=storage_service.settings.queue_video_timeout,
         retry_max=1,
+        job_type=job.job_type,
     )
 
     return VideoJobCreateResponse(

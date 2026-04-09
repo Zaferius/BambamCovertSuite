@@ -1444,6 +1444,54 @@ h1 {
   color: #f97316;
 }
 
+.dot-offline {
+  background-color: #6b7280;
+  color: #6b7280;
+}
+
+.workers-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workers-summary-card {
+  border: 1px solid rgba(180, 77, 255, 0.22);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(180, 77, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workers-summary-card span {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.workers-summary-card strong {
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.workers-scale-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.workers-scale-input {
+  width: 100%;
+  max-width: 120px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(28, 10, 42, 0.92);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
 .admin-user-action {
   display: block;
   font-size: 0.8rem;

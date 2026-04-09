@@ -56,7 +56,15 @@ async def create_batch_image_job(
         user_id=current_user.id,
     )
 
-    enqueue_job(run_batch_image_conversion, job.id, [str(path) for path in paths], normalized_format, quality, retry_max=1)
+    enqueue_job(
+        run_batch_image_conversion,
+        job.id,
+        [str(path) for path in paths],
+        normalized_format,
+        quality,
+        retry_max=1,
+        job_type=job.job_type,
+    )
 
     return BatchJobCreateResponse(job_id=job.id, status="queued", item_count=len(files))
 
@@ -110,6 +118,7 @@ async def create_batch_video_job(
         normalized_height,
         job_timeout=storage.settings.queue_video_timeout,
         retry_max=1,
+        job_type=job.job_type,
     )
 
     return BatchJobCreateResponse(job_id=job.id, status="queued", item_count=len(files))
@@ -149,6 +158,7 @@ async def create_batch_document_job(
         normalized_format,
         job_timeout=storage.settings.queue_document_timeout,
         retry_max=1,
+        job_type=job.job_type,
     )
 
     return BatchJobCreateResponse(job_id=job.id, status="queued", item_count=len(files))
@@ -184,7 +194,15 @@ async def create_batch_audio_job(
         user_id=current_user.id,
     )
 
-    enqueue_job(run_batch_audio_conversion, job.id, [str(path) for path in paths], normalized_format, bitrate, retry_max=1)
+    enqueue_job(
+        run_batch_audio_conversion,
+        job.id,
+        [str(path) for path in paths],
+        normalized_format,
+        bitrate,
+        retry_max=1,
+        job_type=job.job_type,
+    )
 
     return BatchJobCreateResponse(job_id=job.id, status="queued", item_count=len(files))
 
@@ -229,6 +247,7 @@ async def create_batch_rename_job(
         start_index,
         keep_extension,
         retry_max=1,
+        job_type=job.job_type,
     )
 
     return BatchJobCreateResponse(job_id=job.id, status="queued", item_count=len(files))

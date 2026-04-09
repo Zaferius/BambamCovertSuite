@@ -256,46 +256,40 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         # If sanitization fails for any reason, fallback to original compose file.
         compose_file_for_scale = compose_file_path
 
-    # If a native container with a fixed container_name is running alongside our
-    # compose-scaled workers, count it as one of the desired workers rather than
-    # trying to remove it (Coolify/platform may restart it anyway).  We scale
-    # compose to (target - native_count) so the total always equals target_count.
-    native_running = 0
-    if removed_container_name:
+    # Detect "native" worker containers — those managed by a different compose
+    # project (e.g. Coolify injects its own project name) — by comparing all
+    # running worker service containers against the ones in our own project.
+    # This does NOT rely on container_name being present in the compose file.
+    docker_bin = shutil.which("docker") or "docker"
+    our_project_name = Path(project_dir).name.lower()  # e.g. "workspace"
+
+    def _get_worker_container_ids(extra_filters: list[str] | None = None) -> list[str]:
+        cmd = [docker_bin, "ps", "-q", "--filter", "label=com.docker.compose.service=worker"]
+        for f in (extra_filters or []):
+            cmd += ["--filter", f]
         try:
-            docker_bin = shutil.which("docker") or "docker"
-            # Use `docker inspect` for an exact name match — more reliable than
-            # `docker ps --filter name=` which does substring/regex matching that
-            # varies across Docker versions.
-            inspect_result = subprocess.run(
-                [docker_bin, "inspect", "--format", "{{.State.Running}}", removed_container_name],
-                capture_output=True, text=True, timeout=10, check=False,
-            )
-            if inspect_result.returncode == 0 and inspect_result.stdout.strip() == "true":
-                native_running = 1
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+            return [l.strip() for l in r.stdout.splitlines() if l.strip()]
         except Exception:
-            native_running = 0
+            return []
+
+    all_worker_ids = set(_get_worker_container_ids())
+    our_worker_ids = set(_get_worker_container_ids([f"label=com.docker.compose.project={our_project_name}"]))
+    native_worker_ids = list(all_worker_ids - our_worker_ids)
+    native_running = len(native_worker_ids)
 
     compose_scale_target = max(0, target_count - native_running)
 
-    # If no compose-managed workers are needed (target covered by native), stop
-    # any existing workspace-worker-* containers and return early.
+    # If native workers already cover the target, stop all our compose-managed
+    # workers and return early.
     if compose_scale_target == 0:
-        try:
-            docker_bin = shutil.which("docker") or "docker"
-            # Stop all compose-project workers (workspace-worker-*)
-            ps_result = subprocess.run(
-                [docker_bin, "ps", "-q",
-                 "--filter", "label=com.docker.compose.service=worker",
-                 "--filter", "label=com.docker.compose.project=workspace"],
-                capture_output=True, text=True, timeout=10, check=False,
-            )
-            for cid in [l.strip() for l in ps_result.stdout.splitlines() if l.strip()]:
+        for cid in our_worker_ids:
+            try:
                 subprocess.run([docker_bin, "rm", "-f", cid],
                                capture_output=True, timeout=30, check=False)
-        except Exception:
-            pass
-        return 0, f"Native worker covers target; compose workers stopped."
+            except Exception:
+                pass
+        return 0, "Native worker(s) cover target; compose workers stopped."
 
     command = [
         *command_prefix,

@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: bambam-api
     environment:
       - WORKER_SCALE_COMMAND=${WORKER_SCALE_COMMAND:-docker-compose}
       - WORKER_COMPOSE_FILE=${WORKER_COMPOSE_FILE:-/workspace/docker-compose.yml}
@@ -59,7 +58,6 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    container_name: bambam-frontend
     ports:
       - "${FRONTEND_PUBLIC_PORT:-3000}:3000"
     depends_on:
@@ -76,7 +74,6 @@ services:
     build:
       context: .
       dockerfile: bot/Dockerfile
-    container_name: bambam-bot
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - API_BASE_URL=http://api:8000
@@ -88,7 +85,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: bambam-redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

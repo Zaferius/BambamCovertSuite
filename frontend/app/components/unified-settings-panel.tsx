@@ -611,7 +611,10 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       const data = await res.json() as { workers: WorkerItem[]; summary: WorkerSummary };
       setWorkers(data.workers ?? []);
       setSummary(data.summary ?? null);
-      if (data.summary && !scaleTarget) setScaleTarget(String(data.summary.target_workers));
+      if (data.summary) {
+        // Only initialize once; do not override user input on periodic refresh.
+        setScaleTarget((prev) => prev || String(data.summary.target_workers));
+      }
     } catch {
       setWorkers([]);
       setSummary(null);
@@ -629,9 +632,10 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
     return () => window.clearInterval(id);
   }, [isOpen, apiBaseUrl]);
 
-  const healthColor = summary?.health === "healthy"
+  const normalizedHealth = (summary?.health ?? "").toLowerCase().trim();
+  const healthColor = normalizedHealth === "healthy"
     ? "#22c55e"
-    : summary?.health === "degraded"
+    : normalizedHealth === "degraded"
       ? "#f59e0b"
       : "#ef4444";
 

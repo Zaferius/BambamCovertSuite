@@ -55,7 +55,7 @@ def _resolve_worker_health(
         return "degraded"
     if queue_size > 0 and not any(w.get("status") == "busy" for w in online_workers):
         return "degraded"
-    return "healthy!"
+    return "healthy"
 
 
 def _list_workers_with_online_flag() -> tuple[list[dict], int, int, int]:
@@ -321,6 +321,16 @@ def scale_workers(payload: WorkerScaleRequest, current_admin=Depends(get_current
     try:
         code, output = _run_compose_scale(payload.target_count)
         if code != 0:
+            lower_output = (output or "").lower()
+            if "custom container name" in lower_output and "remove the custom name to scale" in lower_output:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Scale is blocked by Compose service-level container_name on worker. "
+                        "Remove worker container_name from deployed compose (or disable platform-generated "
+                        "fixed container names) and redeploy, then retry scaling."
+                    ),
+                )
             raise HTTPException(status_code=500, detail=f"Scale command failed: {output or 'unknown error'}")
         set_worker_target_count(payload.target_count)
         return {

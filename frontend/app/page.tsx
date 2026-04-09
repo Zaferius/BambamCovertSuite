@@ -11,16 +11,14 @@ import { DocumentConverter } from "./components/document-converter";
 import { ImageConverter } from "./components/image-converter";
 import { JobsDashboard } from "./components/jobs-dashboard";
 import { VideoConverter } from "./components/video-converter";
-import { UserBotSettings } from "./components/user-bot-settings";
+import { UnifiedSettingsPanel } from "./components/unified-settings-panel";
 
 import { useAuth } from "./lib/auth-context";
 import { useAction } from "./lib/action-context";
 import { AuthScreen } from "./components/auth-screen";
-import { AdminPanel } from "./components/admin-panel";
-import { UserSettingsPanel } from "./components/user-settings-panel";
 import { APP_VERSION } from "@/lib/version";
 
-type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs" | "bot-settings";
+type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
 
 const landingToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label: string }> = [
   { key: "image", label: "Image Converter" },
@@ -30,20 +28,15 @@ const landingToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label
   { key: "rename", label: "Batch Rename" },
 ];
 
-const navToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs" | "bot-settings">; label: string }> = [
+const navItems: Array<{ key: ViewKey; label: string }> = [
+  { key: "landing", label: "Home" },
   { key: "image", label: "Image" },
   { key: "audio", label: "Sound" },
   { key: "video", label: "Video" },
   { key: "document", label: "Document" },
   { key: "rename", label: "Batch Rename" },
-];
-
-const navItems: Array<{ key: ViewKey; label: string }> = [
-  { key: "landing", label: "Home" },
-  ...navToolItems,
   { key: "jobs", label: "Jobs" },
 ];
-
 
 function BambamLogo() {
   return (
@@ -53,11 +46,9 @@ function BambamLogo() {
 
 export default function HomePage() {
   const [activeView, setActiveView] = useState<ViewKey>("landing");
-  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const { user, logout, isLoading } = useAuth();
 
-  // Track unseen finished jobs per tool
   const [hasFinishedJobs, setHasFinishedJobs] = useState<Record<string, boolean>>({});
   const [lastSeenTime, setLastSeenTime] = useState<Record<string, number>>({});
 
@@ -71,25 +62,21 @@ export default function HomePage() {
   useEffect(() => {
     if (!user) return;
 
-    // Ping server with our current action
     const pingServer = async () => {
       try {
-        await authFetch(`${apiBaseUrl}/auth/ping?action=${encodeURIComponent(action)}`, {
-          method: "POST"
-        });
-      } catch (e) {}
+        await authFetch(`${apiBaseUrl}/auth/ping?action=${encodeURIComponent(action)}`, { method: "POST" });
+      } catch {}
     };
 
     pingServer();
-    const pingInterval = setInterval(pingServer, 10000); // 10s ping
+    const pingInterval = setInterval(pingServer, 10000);
 
-    // Quick polling to check for newly finished jobs
     const checkJobs = async () => {
       try {
         const response = await authFetch(`${apiBaseUrl}/jobs`, { cache: "no-store" });
         if (!response.ok) return;
         const jobs = await response.json();
-        
+
         const latestStatus: Record<string, boolean> = {};
         for (const job of jobs) {
           if (job.status === "completed") {
@@ -99,20 +86,16 @@ export default function HomePage() {
             if (job.job_type.includes("video")) toolKey = "video";
             if (job.job_type.includes("document")) toolKey = "document";
             if (job.job_type.includes("rename")) toolKey = "rename";
-            
+
             const jobTime = new Date(job.updated_at).getTime();
             const seenTime = lastSeenTime[toolKey] || 0;
-            
-            if (jobTime > seenTime) {
-              latestStatus[toolKey] = true;
-            }
+            if (jobTime > seenTime) latestStatus[toolKey] = true;
           }
         }
-        
         setHasFinishedJobs(latestStatus);
-      } catch(e) {}
+      } catch {}
     };
-    
+
     void checkJobs();
     const interval = setInterval(checkJobs, 4000);
     return () => {
@@ -121,7 +104,6 @@ export default function HomePage() {
     };
   }, [user, lastSeenTime, apiBaseUrl, action]);
 
-  // When a user visits a tab, clear its notification
   useEffect(() => {
     if (activeView !== "landing") {
       setLastSeenTime(prev => ({ ...prev, [activeView]: Date.now() }));
@@ -136,20 +118,17 @@ export default function HomePage() {
 
   return (
     <main className={isLanding ? "landing-page-shell" : "page-shell"}>
-      {user?.is_admin && <AdminPanel isOpen={adminPanelOpen} setIsOpen={setAdminPanelOpen} />}
-      {user && <UserSettingsPanel isOpen={settingsPanelOpen} setIsOpen={setSettingsPanelOpen} />}
+      <UnifiedSettingsPanel isOpen={settingsPanelOpen} setIsOpen={setSettingsPanelOpen} />
 
-      {/* Settings FAB button */}
-      {user && (
-        <button
-          className="settings-fab"
-          onClick={() => setSettingsPanelOpen(true)}
-          title="Open Settings"
-          aria-label="Settings"
-        >
-          ⚙️
-        </button>
-      )}
+      {/* Settings FAB — always visible */}
+      <button
+        className="settings-fab"
+        onClick={() => setSettingsPanelOpen(true)}
+        title="Settings"
+        aria-label="Settings"
+      >
+        ⚙️
+      </button>
 
       {!isLanding && (
         <header className="top-nav">
@@ -209,15 +188,6 @@ export default function HomePage() {
               {hasFinishedJobs["jobs"] && <span className="notification-badge">!</span>}
               Jobs
             </button>
-            {user?.is_admin && (
-              <button
-                type="button"
-                className="landing-tool-button landing-admin-btn"
-                onClick={() => setAdminPanelOpen(true)}
-              >
-                Admin Panel
-              </button>
-            )}
           </div>
 
           <div className="landing-user-row">
@@ -246,9 +216,6 @@ export default function HomePage() {
         </div>
         <div style={{ display: activeView === "jobs" ? "block" : "none" }}>
           <JobsDashboard />
-        </div>
-        <div style={{ display: activeView === "bot-settings" ? "block" : "none" }}>
-          <UserBotSettings />
         </div>
       </section>
     </main>

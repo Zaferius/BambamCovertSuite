@@ -22,20 +22,23 @@ This repository now includes an in-progress self-hosted web application stack al
 - Job dashboard now shows newly queued jobs immediately after upload starts
 - Job dashboard table includes per-job download action on the right
 - Manual cleanup endpoint for finished and stale jobs
-- Admin panel file manager for `outputs`/`uploads` (list, view, delete, owner tracking)
-- Admin storage tools: one-click `Delete All` for disk cleanup and default-collapsed `Stored Files` section
-- **Settings panel** with user account info and personal bot configuration (⚙️ icon, left-sliding sidebar)
-- Navbar-based fast tool switching in `[frontend/app/page.tsx](frontend/app/page.tsx)`
+- **Unified Settings Panel** (⚙️ button, left-sliding sidebar):
+  - Admin users see: Account info, Active Users monitor, File Storage manager (all files), System & Personal Bot Settings
+  - Regular users see: Account info, Personal Storage (own jobs only), Personal Bot Settings
+  - File Storage: admins can view/delete all files with owner tracking; users can download their completed jobs
+  - One-click Delete All button for admins to cleanup disk space
+- **Video crop overlay**: Drag handles to resize, or drag the box interior to reposition — full mouse & touch support
+- Navbar-based fast tool switching between Home, Image, Sound, Video, Document, Batch Rename, Jobs
 - Tab state persistence when switching tabs (conversion forms do not reset)
-- Landing screen with centered logo, suite title, and live status cards
+- Landing screen with centered logo, suite title, version badge, and quick tool buttons
 - Batch and zip export support for image, audio, video, and document jobs
 - Conversion progress loader shown on all converter tabs during active jobs
 - Per-file upload progress bars with cascade fill effect during upload phase
 - Collapsible upload progress panel when more than 5 files are selected
 - All file pickers filtered to supported formats only (no stray file types)
 - Downloaded output files named `{originalname}_converted.{ext}`
-- Fully responsive mobile UI with portrait/landscape support and touch-friendly controls
-- Fixed settings gear icon (⚙️) accessible on all screens for user settings and bot configuration
+- Mobile-optimized UI: horizontal-scrolling navbar (no button overflow), full touch support for all controls
+- Fixed settings gear icon (⚙️) accessible on all screens for all users
 
 ### Current Web Limitations
 
@@ -55,24 +58,26 @@ This repository now includes an in-progress self-hosted web application stack al
 
 ### Web UI Snapshot
 
-- Landing: centered Bambam logo (`@/bambam_logo.png`) + suite title + version label + quick tool buttons
-- Top navbar switches screens instantly between Home, Image, Sound, Video, Document, Batch Rename, Jobs, and Bot Settings
-- Fixed ⚙️ **Settings FAB button** (top-left corner) opens user settings panel on all screens
-- Sound screen: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, and Enable Trim checkbox — **full touch support on mobile**
-- Video screen: trim area with video preview, dual-handle range slider, manual start/end inputs, and draggable free-position crop overlay handles — selected region is cropped (not scaled) in output — **full touch support for crop and trim on mobile**
-- **Admin Panel** (left sidebar):
-  - Slides in from left side on desktop (320px wide)
-  - Full-width on mobile devices
-  - Sections: Active Users, Storage, Active Bots (with owner info), Bot Settings (legacy)
-  - Touch-friendly with overlay backdrop
-- **Settings Panel** (left sidebar, all users):
-  - Accessible via ⚙️ button in top-left
-  - User account information display
-  - Personal Telegram bot configuration and enable/disable toggle
-  - Same responsive design as Admin Panel (320px desktop, full-width mobile)
-- **Bot Settings Tab**: All authenticated users can manage their own Telegram bot token and enable/disable their bot (now also accessible from Settings Panel)
-- All converter screens show an animated spinner with live job status during conversion
-- Mobile portrait mode fixed: no more blur/unclickable state when panels are closed
+- **Landing Screen**: centered Bambam logo + suite title + `v{version}` badge + tagline + 2-column grid of quick-access tool buttons
+- **Top Navbar** (all tool screens): horizontally scrollable tabs for Home, Image, Sound, Video, Document, Batch Rename, Jobs — fits portrait mobile without overflow
+- Fixed ⚙️ **Settings FAB button** (top-left corner): opens unified settings panel for all users on all screens
+- **Unified Settings Panel** (left sidebar, both admin & users):
+  - Account section: username, role indicator (👑 for admin), logout button
+  - **Admin-only sections**:
+    - Users: real-time list of active users with status (idle/processing), 3s refresh
+    - Storage: browse uploads/outputs with owner tracking, view/delete individual files, one-click Delete All
+    - Bot Settings: list of active user bots + system-wide bot config (legacy)
+  - **User sections**:
+    - Storage: list of user's completed jobs with download button
+    - Bot Settings: personal Telegram bot token + enable/disable toggle
+  - Responsive: 320px desktop sidebar, full-width mobile, sub-menu navigation with back button
+- **Sound Screen**: inline waveform editor with canvas visualization, draggable cyan trim handles, `MM:SS.s` manual inputs, Enable Trim checkbox — **full touch support on mobile**
+- **Video Screen**: 
+  - Trim editor: video preview + dual-handle range slider + manual start/end inputs
+  - **New**: Crop overlay with 8 resize handles (corners & edges) + grab-cursor center to reposition the box
+  - Selected crop region is cropped (not scaled) in output
+  - **Full touch support**: all handles + box drag work on mobile
+- **Job monitoring**: animated spinner with live job status during conversion on all converter screens
 
 ## 🚀 Web App Deployment (Coolify / Docker VDS)
 
@@ -449,7 +454,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.3.9-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -650,7 +655,21 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.3.9 (Latest)
+### Version 1.4.0 (Latest)
+- ✨ **Unified Settings Panel** — Single ⚙️ button opens all settings for both admins and users
+  - Admin users: Account, Users (real-time monitor), Storage (all files), Bot Settings (active bots + system bot)
+  - Regular users: Account, Storage (own jobs only with download), Bot Settings (personal bot only)
+- ✨ **Removed Admin Panel button** from navbar and landing page — now only unified settings ⚙️ button
+- ✨ **Per-user Storage** — normal users see only their completed jobs with download buttons
+- ✨ **Admin Storage** — toggle between Uploads/Outputs, view/delete files with owner tracking, one-click Delete All
+- ✨ **Sub-menu navigation** in settings: Account → Users/Storage/Bot Settings with back button
+- ✨ **Video crop drag-to-move**: hold and drag the crop box center to reposition; handles still resize
+- ✨ **Mobile navbar optimization**: buttons scroll horizontally (no wrap), stays readable on portrait
+- ✨ **Improved landing page**: cleaner 2-column grid layout with user info row
+- 🐛 Fixed navbar buttons from wrapping on mobile portrait — now horizontally scrollable
+- 🐛 Removed "Bot Settings" tab from navbar (accessible only from unified settings panel)
+
+### Version 1.3.9
 - ✨ **Settings Panel** — New left-sliding settings panel accessible to all users via ⚙️ FAB button (top-left)
 - ✨ Settings Panel includes user account info and personal Telegram bot configuration
 - ✨ Responsive Settings Panel design: 320px desktop, full-width on mobile (same pattern as Admin Panel)

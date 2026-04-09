@@ -151,6 +151,7 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         str(compose_file_path),
         "up",
         "-d",
+        "--no-deps",
         "--scale",
         f"worker={target_count}",
         "worker",

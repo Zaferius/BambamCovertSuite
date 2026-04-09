@@ -641,7 +641,8 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
 
   const handleScale = async () => {
     const parsed = Number(scaleTarget);
-    if (!Number.isFinite(parsed) || parsed < 1) {
+    const normalized = Number.isFinite(parsed) ? Math.floor(parsed) : NaN;
+    if (!Number.isFinite(normalized) || normalized < 1) {
       setMessage("✗ Enter a valid worker count");
       return;
     }
@@ -651,14 +652,41 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       const res = await authFetch(`${apiBaseUrl}/admin/workers/scale`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target_count: parsed }),
+        body: JSON.stringify({ target_count: normalized }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         setMessage(`✗ ${payload?.detail ?? "Scale failed"}`);
         return;
       }
-      setMessage("✓ Scale command applied");
+      setScaleTarget(String(normalized));
+      setMessage(`✓ Worker count set to ${normalized}`);
+      await fetchWorkers();
+    } catch {
+      setMessage("✗ Scale command error");
+    } finally {
+      setIsScaling(false);
+    }
+  };
+
+  const handleRemoveOneWorker = async () => {
+    if (!summary) return;
+    const nextTarget = Math.max(1, (summary.target_workers ?? 1) - 1);
+    setScaleTarget(String(nextTarget));
+    setIsScaling(true);
+    setMessage("");
+    try {
+      const res = await authFetch(`${apiBaseUrl}/admin/workers/scale`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_count: nextTarget }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(`✗ ${payload?.detail ?? "Scale failed"}`);
+        return;
+      }
+      setMessage(`✓ Worker count set to ${nextTarget}`);
       await fetchWorkers();
     } catch {
       setMessage("✗ Scale command error");
@@ -673,7 +701,6 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
         <h4>Workers Overview</h4>
         {summary ? (
           <div className="workers-summary-grid">
-            <div className="workers-summary-card"><span>Target</span><strong>{summary.target_workers}</strong></div>
             <div className="workers-summary-card"><span>Online</span><strong>{summary.online_workers}</strong></div>
             <div className="workers-summary-card"><span>Busy</span><strong>{summary.busy_workers}</strong></div>
             <div className="workers-summary-card"><span>Queue</span><strong>{summary.queue_size}</strong></div>
@@ -697,6 +724,9 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
 
       <div className="admin-section">
         <h4>Scale Workers</h4>
+        <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: "0.78rem" }}>
+          Worker count sets the exact final total (not additive).
+        </p>
         <div className="workers-scale-row">
           <input
             type="number"
@@ -711,7 +741,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
             onClick={() => void handleScale()}
             disabled={isScaling}
           >
-            {isScaling ? "Scaling..." : "Apply Scale"}
+            {isScaling ? "Scaling..." : "Set Target"}
           </button>
         </div>
         {message && (
@@ -754,6 +784,24 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
                   <span className="admin-user-action">
                     Last seen: {w.last_seen ? new Date(w.last_seen * 1000).toLocaleString() : "-"}
                   </span>
+                  <button
+                    className="admin-panel-toggle"
+                    onClick={() => void handleRemoveOneWorker()}
+                    disabled={isScaling || (summary?.target_workers ?? 1) <= 1}
+                    title="Decrease target by 1 (exact total)"
+                    style={{
+                      marginTop: 6,
+                      width: 28,
+                      height: 28,
+                      minWidth: 28,
+                      padding: 0,
+                      borderColor: "#f87171",
+                      color: "#fca5a5",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ×
+                  </button>
                 </li>
               );
             })}

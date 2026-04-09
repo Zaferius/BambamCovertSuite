@@ -57,7 +57,7 @@ def _resolve_worker_health(
         return "degraded"
     if queue_size > 0 and not any(w.get("status") == "busy" for w in online_workers):
         return "degraded"
-    return "healthy"
+    return "healthy!"
 
 
 def _list_workers_with_online_flag() -> tuple[list[dict], int, int, int]:

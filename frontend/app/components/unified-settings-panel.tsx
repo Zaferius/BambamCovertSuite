@@ -33,6 +33,7 @@ type ActiveBot = {
 
 type WorkerItem = {
   worker_id: string;
+  display_name?: string;
   hostname?: string;
   pid?: number;
   status: "idle" | "busy" | "offline";
@@ -733,10 +734,11 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
             {workers.map((w) => {
               const isBusy = w.status === "busy";
               const isOnline = w.online;
+              const workerLabel = w.display_name || w.worker_id;
               return (
                 <li key={w.worker_id} className="admin-user-item">
                   <div className="admin-user-info">
-                    <span className="admin-user-name" style={{ fontSize: "0.84rem" }}>{w.worker_id}</span>
+                    <span className="admin-user-name" style={{ fontSize: "0.84rem" }} title={w.worker_id}>{workerLabel}</span>
                     <div className={`status-dot ${isOnline ? (isBusy ? "dot-active" : "dot-idle") : "dot-offline"}`} />
                   </div>
                   <span className="admin-user-action">

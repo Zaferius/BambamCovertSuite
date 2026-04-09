@@ -112,8 +112,12 @@ class TrackedWorker(Worker):
         self._heartbeat_interval = heartbeat_interval
         self._shutdown = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
-        self._state_lock = threading.Lock()
-        self._state = {
+        self._status_lock = threading.Lock()
+        # NOTE:
+        # rq.Worker already uses an internal `_state` attribute (WorkerStatus enum).
+        # Do not shadow it with a dict, otherwise worker lifecycle updates inside RQ
+        # will replace the dict and break our item assignment/status serialization.
+        self._status_payload = {
             "worker_id": worker_id,
             "hostname": socket.gethostname(),
             "pid": os.getpid(),
@@ -126,10 +130,10 @@ class TrackedWorker(Worker):
         }
 
     def _write_status(self) -> None:
-        with self._state_lock:
-            payload = dict(self._state)
+        with self._status_lock:
+            payload = dict(self._status_payload)
             payload["last_seen"] = _now()
-            self._state["last_seen"] = payload["last_seen"]
+            self._status_payload["last_seen"] = payload["last_seen"]
         set_worker_status(self._worker_id, payload)
 
     def _heartbeat_loop(self) -> None:
@@ -138,18 +142,18 @@ class TrackedWorker(Worker):
             self._shutdown.wait(self._heartbeat_interval)
 
     def _set_busy(self, job) -> None:
-        with self._state_lock:
-            self._state["status"] = "busy"
-            self._state["current_job_id"] = job.id
-            self._state["current_job_type"] = (job.meta or {}).get("job_type")
+        with self._status_lock:
+            self._status_payload["status"] = "busy"
+            self._status_payload["current_job_id"] = job.id
+            self._status_payload["current_job_type"] = (job.meta or {}).get("job_type")
         self._write_status()
 
     def _set_idle(self, last_error: str | None = None) -> None:
-        with self._state_lock:
-            self._state["status"] = "idle"
-            self._state["current_job_id"] = None
-            self._state["current_job_type"] = None
-            self._state["last_error"] = last_error
+        with self._status_lock:
+            self._status_payload["status"] = "idle"
+            self._status_payload["current_job_id"] = None
+            self._status_payload["current_job_type"] = None
+            self._status_payload["last_error"] = last_error
         self._write_status()
 
     def execute_job(self, job, queue):

@@ -63,17 +63,35 @@ def _list_workers_with_online_flag() -> tuple[list[dict], int, int, int]:
     threshold = settings.worker_offline_threshold_seconds
     workers = list_worker_statuses()
 
+    # Stable, human-friendly naming in dashboard: Worker 1, Worker 2, ...
+    # We compute names from start-time order to keep labels predictable.
+    ordered_for_naming = sorted(
+        workers,
+        key=lambda w: (
+            int(w.get("started_at", 0) or 0),
+            str(w.get("worker_id", "")),
+        ),
+    )
+    for index, worker in enumerate(ordered_for_naming, start=1):
+        worker["display_name"] = f"Worker {index}"
+
     for worker in workers:
-        last_seen = int(worker.get("last_seen", 0) or 0)
+        # Defensive default: if last_seen is absent on any legacy payload,
+        # treat started_at/now as heartbeat baseline so ready workers are
+        # shown as online + idle instead of immediately offline.
+        raw_last_seen = worker.get("last_seen", worker.get("started_at", now))
+        last_seen = int(raw_last_seen or now)
         worker["online"] = (now - last_seen) <= threshold
         worker["status"] = worker.get("status", "idle")
         if not worker["online"]:
             worker["status"] = "offline"
+        elif worker["status"] not in {"busy", "idle"}:
+            worker["status"] = "idle"
 
     online_count = sum(1 for w in workers if w.get("online"))
     busy_count = sum(1 for w in workers if w.get("online") and w.get("status") == "busy")
     idle_count = sum(1 for w in workers if w.get("online") and w.get("status") == "idle")
-    workers.sort(key=lambda w: (not w.get("online"), w.get("worker_id", "")))
+    workers.sort(key=lambda w: (not w.get("online"), w.get("display_name", ""), w.get("worker_id", "")))
     return workers, online_count, busy_count, idle_count
 
 

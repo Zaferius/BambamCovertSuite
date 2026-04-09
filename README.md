@@ -23,7 +23,7 @@ This repository now includes an in-progress self-hosted web application stack al
 - Job dashboard table includes per-job download action on the right
 - Manual cleanup endpoint for finished and stale jobs
 - **Unified Settings Panel** (⚙️ button, left-sliding sidebar):
-  - Admin users see: Account info, Active Users monitor, File Storage manager (all files), System & Personal Bot Settings
+  - Admin users see: Account info, Active Users monitor, **Workers monitor + scaling**, File Storage manager (all files), System & Personal Bot Settings
   - Admin users now also get a **Workers** monitor: live worker list (online/offline, idle/busy, current job), queue size, API/Redis health, and admin scale control
   - Regular users see: Account info, Personal Storage (own jobs only), Personal Bot Settings
   - File Storage: admins can view/delete all files with owner tracking; users can download their completed jobs
@@ -105,6 +105,18 @@ MAX_UPLOAD_SIZE_MB=250
 QUEUE_DEFAULT_TIMEOUT=30m
 QUEUE_VIDEO_TIMEOUT=120m
 QUEUE_DOCUMENT_TIMEOUT=60m
+
+# Worker Monitor & Scaling
+WORKER_HEARTBEAT_INTERVAL_SECONDS=5
+WORKER_OFFLINE_THRESHOLD_SECONDS=15
+WORKER_SCALE_ENABLED=true
+WORKER_SCALE_COMMAND=docker-compose
+WORKER_COMPOSE_FILE=/workspace/docker-compose.yml
+WORKER_COMPOSE_PROJECT_DIR=/workspace
+WORKER_SCALE_TIMEOUT_SECONDS=120
+WORKER_MIN_COUNT=1
+WORKER_MAX_COUNT=8
+WORKER_TARGET_DEFAULT=1
 ```
 
 **Frontend Settings:**
@@ -198,6 +210,11 @@ Important backend environment options are listed in `[backend/.env.example](back
 - `QUEUE_DEFAULT_TIMEOUT`
 - `QUEUE_VIDEO_TIMEOUT`
 - `QUEUE_DOCUMENT_TIMEOUT`
+- `WORKER_HEARTBEAT_INTERVAL_SECONDS`
+- `WORKER_OFFLINE_THRESHOLD_SECONDS`
+- `WORKER_SCALE_ENABLED`
+- `WORKER_MIN_COUNT`
+- `WORKER_MAX_COUNT`
 
 These help control upload limits and long-running worker behavior for self-hosted installations.
 
@@ -238,6 +255,8 @@ These help control upload limits and long-running worker behavior for self-hoste
 - `DELETE /admin/files`
 - `DELETE /admin/files/all`
 - `POST /admin/cleanup`
+- `GET /admin/workers` — worker list + summary (online/offline, busy/idle, queue, health)
+- `POST /admin/workers/scale` — update worker replica target via Docker Compose (admin-only)
 
 **Auth:**
 - `POST /auth/login`
@@ -457,7 +476,7 @@ Operational and maintenance documentation for the self-hosted web app is availab
 - `[plans/web-app-master-roadmap.md](plans/web-app-master-roadmap.md)`
 - `[plans/coolify-vds-deployment.md](plans/coolify-vds-deployment.md)` (Coolify + Ubuntu VDS, IP-first deployment)
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue)
+![Version](https://img.shields.io/badge/version-1.4.1-blue)
 ![Python](https://img.shields.io/badge/python-3.13-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -658,13 +677,13 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 Changelog
 
-### Version 1.4.1
+### Version 1.4.1 (Latest)
 - ✨ Removed completed-job notification `!` badges from both landing quick buttons and top navbar tabs
 - ✨ Refined landing quick-tool grid so **Jobs** uses standard button size and is positioned in the right-column slot under **Document Converter**
 - ✨ Added **Workers** admin monitor in unified settings: online/offline workers, busy/idle state, current job info, queue size, API/Redis health cards
 - ✨ Added admin worker scaling endpoint and UI control backed by Docker Compose (`worker` replicas)
 
-### Version 1.4.0 (Latest)
+### Version 1.4.0
 - ✨ **Unified Settings Panel** — Single ⚙️ button opens all settings for both admins and users
   - Admin users: Account, Users (real-time monitor), Storage (all files), Bot Settings (active bots + system bot)
   - Regular users: Account, Storage (own jobs only with download), Bot Settings (personal bot only)

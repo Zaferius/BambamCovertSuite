@@ -697,17 +697,11 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
   const [workers, setWorkers] = useState<WorkerItem[]>([]);
   const [summary, setSummary] = useState<WorkerSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [scaleTarget, setScaleTarget] = useState<string>("");
+  const [scaleTarget, setScaleTarget] = useState<number>(1);
   const [isScaling, setIsScaling] = useState(false);
   const [message, setMessage] = useState<string>("");
 
-  const getDisplayScaleValue = (targetWorkers: number) => String(Math.max(1, targetWorkers));
-  const getRequestedTargetFromInput = (rawValue: string) => {
-    const parsed = Number(rawValue);
-    const normalized = Number.isFinite(parsed) ? Math.floor(parsed) : NaN;
-    if (!Number.isFinite(normalized) || normalized < 1) return NaN;
-    return Math.max(1, normalized - 1);
-  };
+  const getDisplayScaleValue = (targetWorkers: number) => Math.min(8, Math.max(1, targetWorkers));
 
   const fetchWorkers = async () => {
     setIsLoading(true);
@@ -750,11 +744,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
       : "#ef4444";
 
   const handleScale = async () => {
-    const requestedTarget = getRequestedTargetFromInput(scaleTarget);
-    if (!Number.isFinite(requestedTarget) || requestedTarget < 1) {
-      setMessage("✗ Enter a valid worker count");
-      return;
-    }
+    const requestedTarget = Math.min(8, Math.max(1, scaleTarget));
     setIsScaling(true);
     setMessage("");
     try {
@@ -768,7 +758,7 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
         setMessage(`✗ ${payload?.detail ?? "Scale failed"}`);
         return;
       }
-      setScaleTarget(String(Math.max(1, requestedTarget)));
+      setScaleTarget(requestedTarget);
       setMessage(`✓ Worker count set to ${requestedTarget}`);
       await fetchWorkers();
     } catch {
@@ -834,24 +824,30 @@ function WorkersView({ isOpen, apiBaseUrl }: { isOpen: boolean; apiBaseUrl: stri
 
       <div className="admin-section">
         <h4>Scale Workers</h4>
-        <p style={{ margin: "0 0 8px", color: "var(--muted)", fontSize: "0.78rem" }}>
-          Worker count input is interpreted as entered value minus 1. Example: entering 4 scales system to 3 workers.
-        </p>
-        <div className="workers-scale-row">
-          <input
-            type="number"
-            min={1}
-            step={1}
-            value={scaleTarget}
-            onChange={(e) => setScaleTarget(e.target.value)}
-            className="workers-scale-input"
-          />
+        <div className="workers-scale-card">
+          <div className="workers-scale-header-row">
+            <span className="workers-scale-label">Worker Count</span>
+            <span className="workers-scale-badge">{scaleTarget}</span>
+          </div>
+          <div className="workers-scale-range-row">
+            <span className="workers-scale-minmax">1</span>
+            <input
+              type="range"
+              min={1}
+              max={8}
+              step={1}
+              value={scaleTarget}
+              onChange={(e) => setScaleTarget(Number(e.target.value))}
+              className="workers-scale-slider"
+            />
+            <span className="workers-scale-minmax">8</span>
+          </div>
           <button
-            className="admin-panel-toggle"
+            className="workers-scale-set-button"
             onClick={() => void handleScale()}
             disabled={isScaling}
           >
-            {isScaling ? "Scaling..." : "Set Target"}
+            {isScaling ? "Scaling..." : "Set Workers"}
           </button>
         </div>
         {message && (

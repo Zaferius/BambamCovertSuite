@@ -1496,6 +1496,90 @@ h1 {
   font-size: 0.9rem;
 }
 
+.workers-scale-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(180, 77, 255, 0.35);
+  background: rgba(28, 10, 42, 0.85);
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(180, 77, 255, 0.14);
+}
+
+.workers-scale-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.workers-scale-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.workers-scale-badge {
+  min-width: 44px;
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 77, 255, 0.45);
+  background: rgba(180, 77, 255, 0.16);
+  color: #f3e8ff;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.workers-scale-range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workers-scale-minmax {
+  width: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.workers-scale-slider {
+  width: 100%;
+  accent-color: #b44dff;
+  cursor: pointer;
+}
+
+.workers-scale-set-button {
+  border: 1px solid rgba(180, 77, 255, 0.35);
+  background: rgba(28, 10, 42, 0.85);
+  color: #ffffff;
+  padding: 14px 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+  position: relative;
+  width: 100%;
+}
+
+.workers-scale-set-button:hover:not(:disabled) {
+  background: rgba(44, 16, 65, 0.95);
+  border-color: rgba(180, 77, 255, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(180, 77, 255, 0.2);
+}
+
+.workers-scale-set-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
 .admin-user-action {
   display: block;
   font-size: 0.8rem;

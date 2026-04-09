@@ -1,9 +1,11 @@
 import shutil
 import shlex
 import subprocess
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -145,10 +147,52 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
 
     project_dir = configured_project_dir or str(compose_file_path.parent)
 
+    compose_file_for_scale = compose_file_path
+    temp_compose_file: Path | None = None
+
+    # Coolify can inject service-level container_name for worker, which blocks
+    # docker compose --scale. Build a temporary compose file where only the
+    # worker.container_name line is removed.
+    try:
+        raw = compose_file_path.read_text(encoding="utf-8")
+        lines = raw.splitlines(keepends=True)
+        sanitized_lines: list[str] = []
+        in_worker_block = False
+        worker_indent = 0
+        removed_container_name = False
+
+        for line in lines:
+            stripped = line.strip()
+            indent = len(line) - len(line.lstrip(" "))
+
+            if re.match(r"^\s*worker\s*:\s*$", line):
+                in_worker_block = True
+                worker_indent = indent
+                sanitized_lines.append(line)
+                continue
+
+            if in_worker_block:
+                if stripped and indent <= worker_indent and not stripped.startswith("#"):
+                    in_worker_block = False
+                elif re.match(r"^\s*container_name\s*:\s*.+$", line):
+                    removed_container_name = True
+                    continue
+
+            sanitized_lines.append(line)
+
+        if removed_container_name:
+            with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".yaml", delete=False) as tmp:
+                tmp.write("".join(sanitized_lines))
+                temp_compose_file = Path(tmp.name)
+                compose_file_for_scale = temp_compose_file
+    except Exception:
+        # If sanitization fails for any reason, fallback to original compose file.
+        compose_file_for_scale = compose_file_path
+
     command = [
         *command_prefix,
         "-f",
-        str(compose_file_path),
+        str(compose_file_for_scale),
         "up",
         "-d",
         "--no-deps",
@@ -178,6 +222,12 @@ def _run_compose_scale(target_count: int) -> tuple[int, str]:
         )
     except Exception as exc:
         return 1, f"Unexpected scale command error: {exc}"
+    finally:
+        if temp_compose_file is not None:
+            try:
+                temp_compose_file.unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 # ============ Bot Settings Endpoints ============

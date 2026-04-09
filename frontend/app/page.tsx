@@ -20,12 +20,13 @@ import { APP_VERSION } from "@/lib/version";
 
 type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
 
-const landingToolItems: Array<{ key: Exclude<ViewKey, "landing" | "jobs">; label: string }> = [
+const landingToolItems: Array<{ key: Exclude<ViewKey, "landing">; label: string }> = [
   { key: "image", label: "Image Converter" },
   { key: "audio", label: "Sound Converter" },
   { key: "video", label: "Video Converter" },
   { key: "document", label: "Document Converter" },
   { key: "rename", label: "Batch Rename" },
+  { key: "jobs", label: "Jobs" },
 ];
 
 const navItems: Array<{ key: ViewKey; label: string }> = [
@@ -49,9 +50,6 @@ export default function HomePage() {
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const { user, logout, isLoading } = useAuth();
 
-  const [hasFinishedJobs, setHasFinishedJobs] = useState<Record<string, boolean>>({});
-  const [lastSeenTime, setLastSeenTime] = useState<Record<string, number>>({});
-
   const apiBaseUrl = useMemo(
     () => process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000",
     [],
@@ -71,45 +69,10 @@ export default function HomePage() {
     pingServer();
     const pingInterval = setInterval(pingServer, 10000);
 
-    const checkJobs = async () => {
-      try {
-        const response = await authFetch(`${apiBaseUrl}/jobs`, { cache: "no-store" });
-        if (!response.ok) return;
-        const jobs = await response.json();
-
-        const latestStatus: Record<string, boolean> = {};
-        for (const job of jobs) {
-          if (job.status === "completed") {
-            let toolKey = "jobs";
-            if (job.job_type.includes("image")) toolKey = "image";
-            if (job.job_type.includes("audio")) toolKey = "audio";
-            if (job.job_type.includes("video")) toolKey = "video";
-            if (job.job_type.includes("document")) toolKey = "document";
-            if (job.job_type.includes("rename")) toolKey = "rename";
-
-            const jobTime = new Date(job.updated_at).getTime();
-            const seenTime = lastSeenTime[toolKey] || 0;
-            if (jobTime > seenTime) latestStatus[toolKey] = true;
-          }
-        }
-        setHasFinishedJobs(latestStatus);
-      } catch {}
-    };
-
-    void checkJobs();
-    const interval = setInterval(checkJobs, 4000);
     return () => {
-      clearInterval(interval);
       clearInterval(pingInterval);
     };
-  }, [user, lastSeenTime, apiBaseUrl, action]);
-
-  useEffect(() => {
-    if (activeView !== "landing") {
-      setLastSeenTime(prev => ({ ...prev, [activeView]: Date.now() }));
-      setHasFinishedJobs(prev => ({ ...prev, [activeView]: false }));
-    }
-  }, [activeView]);
+  }, [user, apiBaseUrl, action]);
 
   if (isLoading) return null;
   if (!user) return <AuthScreen />;
@@ -139,11 +102,7 @@ export default function HomePage() {
                 type="button"
                 className={`top-nav-item ${activeView === item.key ? "active" : ""}`}
                 onClick={() => setActiveView(item.key)}
-                style={{ position: "relative" }}
               >
-                {item.key !== "landing" && hasFinishedJobs[item.key] && (
-                  <span className="notification-badge" style={{ top: "-6px", right: "-6px", width: "18px", height: "18px", fontSize: "11px" }}>!</span>
-                )}
                 {item.label}
               </button>
             ))}
@@ -173,21 +132,10 @@ export default function HomePage() {
                 type="button"
                 className="landing-tool-button"
                 onClick={() => setActiveView(item.key)}
-                style={{ position: "relative" }}
               >
-                {hasFinishedJobs[item.key] && <span className="notification-badge">!</span>}
                 {item.label}
               </button>
             ))}
-            <button
-              type="button"
-              className="landing-tool-button landing-jobs-btn"
-              onClick={() => setActiveView("jobs")}
-              style={{ position: "relative" }}
-            >
-              {hasFinishedJobs["jobs"] && <span className="notification-badge">!</span>}
-              Jobs
-            </button>
           </div>
 
           <div className="landing-user-row">

@@ -29,8 +29,9 @@ This repository now includes an in-progress self-hosted web application stack al
   - One-click Delete All button for admins to cleanup disk space
 - **Video crop overlay**: Drag handles to resize, or drag the box interior to reposition — full mouse & touch support
 - Navbar-based fast tool switching between Home, Image, Sound, Video, Document, Batch Rename, Jobs
+- Removed completed-job notification badge indicators (`!`) from landing buttons and navbar tabs
 - Tab state persistence when switching tabs (conversion forms do not reset)
-- Landing screen with centered logo, suite title, version badge, and quick tool buttons
+- Landing screen with centered logo, suite title, version badge, and balanced 2-column quick tool layout (Jobs now matches other button sizes and sits in the right-column gap under Document Converter)
 - Batch and zip export support for image, audio, video, and document jobs
 - Conversion progress loader shown on all converter tabs during active jobs
 - Per-file upload progress bars with cascade fill effect during upload phase
@@ -58,7 +59,7 @@ This repository now includes an in-progress self-hosted web application stack al
 
 ### Web UI Snapshot
 
-- **Landing Screen**: centered Bambam logo + suite title + `v{version}` badge + tagline + 2-column grid of quick-access tool buttons
+- **Landing Screen**: centered Bambam logo + suite title + `v{version}` badge + tagline + 2-column grid of quick-access tool buttons; Jobs uses the same button size as others and is placed in the right-column slot beneath Document Converter
 - **Top Navbar** (all tool screens): horizontally scrollable tabs for Home, Image, Sound, Video, Document, Batch Rename, Jobs — fits portrait mobile without overflow
 - Fixed ⚙️ **Settings FAB button** (top-left corner): opens unified settings panel for all users on all screens
 - **Unified Settings Panel** (left sidebar, both admin & users):
@@ -654,6 +655,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Large video files may take significant time to process
 
 ## 📝 Changelog
+
+### Version 1.4.1
+- ✨ Removed completed-job notification `!` badges from both landing quick buttons and top navbar tabs
+- ✨ Refined landing quick-tool grid so **Jobs** uses standard button size and is positioned in the right-column slot under **Document Converter**
 
 ### Version 1.4.0 (Latest)
 - ✨ **Unified Settings Panel** — Single ⚙️ button opens all settings for both admins and users

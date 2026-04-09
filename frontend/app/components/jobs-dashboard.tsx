@@ -97,12 +97,12 @@ export function JobsDashboard() {
       <div className="dashboard-header">
         <div className="section-heading compact-heading">
           <h2>Job dashboard</h2>
-          <p>Live history of all conversion jobs across image, sound, video, and document modules.</p>
+          <p className="jobs-dashboard-subtitle">Live history of all conversion jobs across image, sound, video, and document modules.</p>
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div className="jobs-actions">
           {user?.is_admin && (
-            <button className="primary-button" style={{ background: "transparent", borderColor: "#f87171", color: "#f87171" }} type="button" onClick={async () => {
+            <button className="primary-button jobs-action-button jobs-action-button-danger" type="button" onClick={async () => {
               if (!confirm("Are you sure you want to stop ALL active jobs for ALL users?")) return;
               try {
                 const response = await authFetch(`${apiBaseUrl}/admin/stop-all-jobs`, { method: "POST" });
@@ -116,7 +116,7 @@ export function JobsDashboard() {
               Stop all jobs
             </button>
           )}
-          <button className="primary-button" style={{ background: "transparent", borderColor: "#f87171", color: "#f87171" }} type="button" onClick={async () => {
+          <button className="primary-button jobs-action-button jobs-action-button-danger" type="button" onClick={async () => {
             if (!confirm("Are you sure you want to stop YOUR active jobs?")) return;
             try {
               const response = await authFetch(`${apiBaseUrl}/jobs/stop`, { method: "POST" });
@@ -129,7 +129,7 @@ export function JobsDashboard() {
           }}>
             Stop jobs
           </button>
-          <button className="primary-button" type="button" onClick={triggerCleanup}>
+          <button className="primary-button jobs-action-button" type="button" onClick={triggerCleanup}>
             Cleanup finished jobs
           </button>
         </div>

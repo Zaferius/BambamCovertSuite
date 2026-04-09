@@ -23,15 +23,10 @@ This repository now includes an in-progress self-hosted web application stack al
 - Job dashboard table includes per-job download action on the right
 - Manual cleanup endpoint for finished and stale jobs
 - **Unified Settings Panel** (⚙️ button, left-sliding sidebar):
-  - Admin users see: Account info, Active Users monitor, **Workers monitor + scaling**, File Storage manager (all files), System & Personal Bot Settings
+  - Admin users see: Account info, Active Users monitor, **Workers monitor**, File Storage manager (all files), System & Personal Bot Settings
   - Admin Users sub-panel now offers an **Admin-only Users** view with real-time active users, a member creation form, and full registered user listing + delete controls
-  - Admin users now also get a **Workers** monitor: live worker list (online/offline, idle/busy, current job), queue size, API/Redis health, and admin scale control
-  - Workers scale input now preserves typed value during auto-refresh
-  - Workers health color mapping normalized so `healthy` always renders green
-  - Workers scaling semantics are exact-count based (set final total, not additive)
-  - Workers target count now reconciles against actual running compose worker replicas so `1 → 3` results in a final total of `3`, not `4`
-  - Worker list includes quick `×` control to decrement desired total by 1
-  - Worker quick-remove (`×`) control can now decrement reliably down to the minimum worker count
+  - Admin users get a **Workers** monitor: live worker list (online/offline, idle/busy, current job), queue size, API/Redis health; 8 workers run continuously by default
+  - Workers health color mapping: `healthy` (green), `degraded` (yellow), `down` (red)
   - Regular users see: Account info, Personal Storage (own jobs only), Personal Bot Settings
   - File Storage: admins can view/delete all files with owner tracking; users can download their completed jobs
   - One-click Delete All button for admins to cleanup disk space
@@ -48,6 +43,13 @@ This repository now includes an in-progress self-hosted web application stack al
 - Downloaded output files named `{originalname}_converted.{ext}`
 - Mobile-optimized UI: horizontal-scrolling navbar (no button overflow), full touch support for all controls, and improved portrait spacing so settings/logout controls do not overlap navbar tabs
 - Fixed settings gear icon (⚙️) accessible on all screens for all users
+
+### Worker Configuration
+
+- **8 workers** run continuously by default (defined as `worker-1` through `worker-8` in `[docker-compose.yml](docker-compose.yml)`)
+- Each worker processes jobs from the Redis queue in parallel
+- Offline/idle workers consume minimal resources (no active job = negligible CPU/memory)
+- Worker status monitored in real-time via Admin → Workers panel
 
 ### Current Web Limitations
 

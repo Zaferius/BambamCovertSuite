@@ -6,7 +6,17 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 
 LOGO_PATH = "bambam_logo.png"
-VERSION = "1.3.1"
+
+def _read_version() -> str:
+    import sys
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    try:
+        with open(os.path.join(base, "VERSION"), encoding="utf-8") as _f:
+            return _f.read().strip()
+    except Exception:
+        return "1.5.1"
+
+VERSION = _read_version()
 
 class LandingTab:
     def __init__(self, app, parent):

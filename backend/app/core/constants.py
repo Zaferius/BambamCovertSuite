@@ -1,6 +1,7 @@
 from pathlib import Path
 
-APP_VERSION = "0.1.0"
+_VERSION_FILE = Path(__file__).resolve().parent.parent.parent.parent / "VERSION"
+APP_VERSION = _VERSION_FILE.read_text(encoding="utf-8").strip() if _VERSION_FILE.exists() else "1.5.1"
 APP_DESCRIPTION = "Self-hosted media conversion API for the Bambam web application."
 
 LOCALHOST_API_ORIGIN = "http://localhost:3000"

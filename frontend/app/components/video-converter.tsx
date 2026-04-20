@@ -77,6 +77,9 @@ export function VideoConverter() {
   const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandle | null>(null);
   const [isMovingOverlay, setIsMovingOverlay] = useState(false);
   const [overlayRect, setOverlayRect] = useState({ left: 0, top: 0, w: 1, h: 1 });
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [videoPlayhead, setVideoPlayhead] = useState(0);
+  const videoRafRef = useRef<number | null>(null);
   const resizeDragStartRef = useRef<{
     startX: number;
     startY: number;
@@ -104,6 +107,13 @@ export function VideoConverter() {
     setTrimStart(0);
     setTrimEnd(0);
     setTrimEnabled(false);
+    if (videoRafRef.current !== null) {
+      window.cancelAnimationFrame(videoRafRef.current);
+      videoRafRef.current = null;
+    }
+    videoRef.current?.pause();
+    setIsVideoPlaying(false);
+    setVideoPlayhead(0);
 
     if (files.length === 1 && file) {
       setPreviewUrl(URL.createObjectURL(file));
@@ -121,6 +131,45 @@ export function VideoConverter() {
       }
     };
   }, [previewUrl]);
+
+  const handleVideoPreview = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isVideoPlaying) {
+      if (videoRafRef.current !== null) {
+        window.cancelAnimationFrame(videoRafRef.current);
+        videoRafRef.current = null;
+      }
+      video.pause();
+      setIsVideoPlaying(false);
+      return;
+    }
+
+    const capturedEnd = trimEnd;
+    const capturedStart = trimStart;
+
+    video.currentTime = capturedStart;
+    setVideoPlayhead(capturedStart);
+
+    const tick = () => {
+      const t = video.currentTime;
+      setVideoPlayhead(t);
+      if (t >= capturedEnd) {
+        video.pause();
+        setIsVideoPlaying(false);
+        setVideoPlayhead(capturedStart);
+        videoRafRef.current = null;
+        return;
+      }
+      videoRafRef.current = window.requestAnimationFrame(tick);
+    };
+
+    video.play().then(() => {
+      setIsVideoPlaying(true);
+      videoRafRef.current = window.requestAnimationFrame(tick);
+    }).catch(() => setIsVideoPlaying(false));
+  }, [isVideoPlaying, trimStart, trimEnd]);
 
   const handleMetadataLoaded = (event: SyntheticEvent<HTMLVideoElement>) => {
     const media = event.currentTarget;
@@ -152,6 +201,18 @@ export function VideoConverter() {
     if (!video) return;
     if (resizeEnabled) video.pause();
   }, [resizeEnabled]);
+
+  useEffect(() => {
+    if (!trimEnabled) {
+      if (videoRafRef.current !== null) {
+        window.cancelAnimationFrame(videoRafRef.current);
+        videoRafRef.current = null;
+      }
+      videoRef.current?.pause();
+      setIsVideoPlaying(false);
+      setVideoPlayhead(0);
+    }
+  }, [trimEnabled]);
 
   useEffect(() => {
     if (!activeResizeHandle) return;
@@ -585,7 +646,7 @@ export function VideoConverter() {
             {selectedFiles.length === 1 && previewUrl && (resizeEnabled || trimEnabled) ? (
               <section className="trim-card">
                 <div ref={resizeStageRef} className="video-resize-stage">
-                  <video ref={videoRef} className="trim-preview" src={previewUrl} controls={!resizeEnabled} preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+                  <video ref={videoRef} className="trim-preview" src={previewUrl} controls={!trimEnabled && !resizeEnabled} preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
                   {resizeEnabled ? (
                     <div
                       className="video-resize-overlay"
@@ -632,6 +693,29 @@ export function VideoConverter() {
 
                 {trimEnabled && (
                   <>
+                    <div className="waveform-controls-row" style={{ marginBottom: "8px" }}>
+                      <button
+                        type="button"
+                        className="trim-play-btn"
+                        onClick={handleVideoPreview}
+                        title={isVideoPlaying ? "Pause preview" : "Play trimmed range"}
+                      >
+                        {isVideoPlaying ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className="trim-playhead-time">{formatTime(isVideoPlaying ? videoPlayhead : trimStart)}</span>
+                      <span style={{ marginLeft: "auto", fontSize: "0.78rem", color: "var(--muted)" }}>
+                        Range: {formatTime(trimStart)} – {formatTime(trimEnd)}
+                      </span>
+                    </div>
+
                     <div
                       ref={waveformAreaRef}
                       className="waveform-area"
@@ -641,6 +725,13 @@ export function VideoConverter() {
 
                       <div className="waveform-mask" style={{ left: 0, width: `${trimStartPercent}%` }} />
                       <div className="waveform-mask" style={{ right: 0, width: `${100 - trimEndPercent}%` }} />
+
+                      {videoDuration > 0 && (
+                        <div
+                          className="waveform-playhead"
+                          style={{ left: `${(videoPlayhead / videoDuration) * 100}%` }}
+                        />
+                      )}
 
                       <div
                         className="waveform-handle"
@@ -735,39 +826,41 @@ export function VideoConverter() {
 
       {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
 
-      {result ? (
-        <div className="result-card">
-          <h3>Video conversion state</h3>
-          <p>
-            <strong>Job:</strong> {result.job_id}
-          </p>
-          <p>
-            <strong>Source:</strong> {result.original_filename}
-          </p>
-          <p>
-            <strong>Format:</strong> {result.target_format}
-          </p>
-          <p>
-            <strong>FPS:</strong> {result.fps}
-          </p>
-          <p>
-            <strong>Crop:</strong> {result.resize_enabled ? `${result.width}x${result.height}` : "Disabled"}
-          </p>
-          <p>
-            <strong>Status:</strong> {result.status}
-          </p>
-          {jobStatus ? (
+      {
+        result ? (
+          <div className="result-card">
+            <h3>Video conversion state</h3>
             <p>
-              <strong>Live status:</strong> {jobStatus}
+              <strong>Job:</strong> {result.job_id}
             </p>
-          ) : null}
-          {result.download_url ? (
-            <a className="primary-button inline-button" href={buildApiUrl(result.download_url)} target="_blank" rel="noreferrer">
-              Download {isBatchResult ? "zip bundle" : "converted video"}
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-    </section>
+            <p>
+              <strong>Source:</strong> {result.original_filename}
+            </p>
+            <p>
+              <strong>Format:</strong> {result.target_format}
+            </p>
+            <p>
+              <strong>FPS:</strong> {result.fps}
+            </p>
+            <p>
+              <strong>Crop:</strong> {result.resize_enabled ? `${result.width}x${result.height}` : "Disabled"}
+            </p>
+            <p>
+              <strong>Status:</strong> {result.status}
+            </p>
+            {jobStatus ? (
+              <p>
+                <strong>Live status:</strong> {jobStatus}
+              </p>
+            ) : null}
+            {result.download_url ? (
+              <a className="primary-button inline-button" href={buildApiUrl(result.download_url)} target="_blank" rel="noreferrer">
+                Download {isBatchResult ? "zip bundle" : "converted video"}
+              </a>
+            ) : null}
+          </div>
+        ) : null
+      }
+    </section >
   );
 }

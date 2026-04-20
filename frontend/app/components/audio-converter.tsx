@@ -92,6 +92,7 @@ export function AudioConverter() {
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
+  const rafIdRef = useRef<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [volume, setVolume] = useState(1.0);
@@ -182,6 +183,10 @@ export function AudioConverter() {
         URL.revokeObjectURL(audioObjectUrlRef.current);
         audioObjectUrlRef.current = null;
       }
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, [selectedFile, selectedFiles.length]);
 
@@ -231,6 +236,10 @@ export function AudioConverter() {
 
   const handlePlayPreview = useCallback(() => {
     if (isPlaying) {
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       audioPlayerRef.current?.pause();
       setIsPlaying(false);
       return;
@@ -250,26 +259,39 @@ export function AudioConverter() {
     audio.currentTime = trimStart;
     audioPlayerRef.current = audio;
 
-    const onTimeUpdate = () => {
-      setPlayhead(audio.currentTime);
-      if (audio.currentTime >= trimEnd) {
-        audio.pause();
+    const capturedEnd = trimEnd;
+    const capturedStart = trimStart;
+
+    const tick = () => {
+      if (!audioPlayerRef.current) return;
+      const t = audioPlayerRef.current.currentTime;
+      setPlayhead(t);
+      if (t >= capturedEnd) {
+        audioPlayerRef.current.pause();
         setIsPlaying(false);
-        setPlayhead(trimStart);
+        setPlayhead(capturedStart);
+        rafIdRef.current = null;
+        return;
       }
+      rafIdRef.current = window.requestAnimationFrame(tick);
     };
 
     const onEnded = () => {
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       setIsPlaying(false);
-      setPlayhead(trimStart);
+      setPlayhead(capturedStart);
     };
 
-    audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded);
 
-    audio.play().catch(() => setIsPlaying(false));
-    setIsPlaying(true);
-    setPlayhead(trimStart);
+    audio.play().then(() => {
+      setIsPlaying(true);
+      setPlayhead(capturedStart);
+      rafIdRef.current = window.requestAnimationFrame(tick);
+    }).catch(() => setIsPlaying(false));
   }, [isPlaying, selectedFile, audioDuration, trimStart, trimEnd, volume]);
 
   useEffect(() => {
@@ -296,6 +318,10 @@ export function AudioConverter() {
     setTrimEnabled(false);
     setTrimStart(0);
     setTrimEnd(0);
+    if (rafIdRef.current !== null) {
+      window.cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
     audioPlayerRef.current?.pause();
     audioPlayerRef.current = null;
     setIsPlaying(false);

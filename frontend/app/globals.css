@@ -813,7 +813,152 @@ h1 {
   text-align: center;
 }
 
+/* Playhead vertical line */
+.waveform-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #ffffff;
+  transform: translateX(-50%);
+  z-index: 8;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.7), 0 0 12px rgba(255, 255, 255, 0.3);
+  transition: left 0.05s linear;
+}
+
+/* ── Waveform play-controls row ───────────────────────────────────────────── */
+
+.waveform-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #080e1e;
+  border-top: 1px solid rgba(56, 189, 248, 0.12);
+}
+
+.trim-play-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #00b86a, #00e87a);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  padding: 0;
+}
+
+.trim-play-btn:hover {
+  opacity: 0.88;
+  transform: scale(1.06);
+}
+
+.trim-play-btn:active {
+  transform: scale(0.94);
+}
+
+.trim-playhead-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: #7dd4fc;
+  min-width: 58px;
+  flex-shrink: 0;
+}
+
+.trim-volume-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.trim-volume-icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.trim-volume-slider {
+  flex: 1;
+  min-width: 60px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+
+.trim-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #00e87a;
+  border: 2px solid #fff;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(0, 232, 122, 0.55);
+}
+
+.trim-volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #00e87a;
+  border: 2px solid #fff;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(0, 232, 122, 0.55);
+}
+
+.trim-volume-pct {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ── Upload progress panel ─────────────────────────────────────────────────── */
+
+/* Uploading… header */
+.upload-progress-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: rgba(30, 10, 48, 0.9);
+  border-bottom: 1px solid rgba(180, 77, 255, 0.2);
+}
+
+.upload-progress-heading {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+  flex: 1;
+  letter-spacing: 0.01em;
+}
+
+.upload-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: upload-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes upload-dot-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
 
 .upload-progress-panel {
   border: 1px solid rgba(180, 77, 255, 0.22);

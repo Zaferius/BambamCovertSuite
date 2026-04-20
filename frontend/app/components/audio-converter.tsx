@@ -89,6 +89,12 @@ export function AudioConverter() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const waveformAreaRef = useRef<HTMLDivElement>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
+  const [volume, setVolume] = useState(1.0);
 
   // ─── Waveform drawing ─────────────────────────────────────────────────────
 
@@ -136,13 +142,16 @@ export function AudioConverter() {
     ctx.stroke();
   }, []);
 
-  // Decode + draw when a single file is selected
+  // Decode audio data — store buffer in ref, then flip waveformReady to mount the canvas
   useEffect(() => {
     if (!selectedFile || selectedFiles.length !== 1) return;
 
     let cancelled = false;
     setWaveformReady(false);
     setAudioDuration(0);
+    audioBufferRef.current = null;
+    setIsPlaying(false);
+    setPlayhead(0);
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -156,9 +165,7 @@ export function AudioConverter() {
         setAudioDuration(duration);
         setTrimStart(0);
         setTrimEnd(duration);
-        window.requestAnimationFrame(() => {
-          if (!cancelled) drawWaveform(audioBuffer);
-        });
+        audioBufferRef.current = audioBuffer;
         setWaveformReady(true);
         await audioCtx.close();
       } catch {
@@ -167,8 +174,24 @@ export function AudioConverter() {
     };
     reader.readAsArrayBuffer(selectedFile);
 
-    return () => { cancelled = true; };
-  }, [selectedFile, selectedFiles.length, drawWaveform]);
+    return () => {
+      cancelled = true;
+      audioPlayerRef.current?.pause();
+      audioPlayerRef.current = null;
+      if (audioObjectUrlRef.current) {
+        URL.revokeObjectURL(audioObjectUrlRef.current);
+        audioObjectUrlRef.current = null;
+      }
+    };
+  }, [selectedFile, selectedFiles.length]);
+
+  // Draw waveform AFTER canvas is mounted (waveformReady=true triggers re-render → canvas appears)
+  useEffect(() => {
+    if (!waveformReady || !audioBufferRef.current) return;
+    const buf = audioBufferRef.current;
+    const raf = window.requestAnimationFrame(() => drawWaveform(buf));
+    return () => window.cancelAnimationFrame(raf);
+  }, [waveformReady, drawWaveform]);
 
   // ─── Drag handling ────────────────────────────────────────────────────────
 
@@ -204,6 +227,57 @@ export function AudioConverter() {
     };
   }, [isDragging, xToTime, trimStart, trimEnd]);
 
+  // ─── Play preview ─────────────────────────────────────────────────────────
+
+  const handlePlayPreview = useCallback(() => {
+    if (isPlaying) {
+      audioPlayerRef.current?.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    if (!selectedFile || audioDuration <= 0) return;
+
+    if (audioObjectUrlRef.current) {
+      URL.revokeObjectURL(audioObjectUrlRef.current);
+    }
+
+    const url = URL.createObjectURL(selectedFile);
+    audioObjectUrlRef.current = url;
+
+    const audio = new Audio(url);
+    audio.volume = volume;
+    audio.currentTime = trimStart;
+    audioPlayerRef.current = audio;
+
+    const onTimeUpdate = () => {
+      setPlayhead(audio.currentTime);
+      if (audio.currentTime >= trimEnd) {
+        audio.pause();
+        setIsPlaying(false);
+        setPlayhead(trimStart);
+      }
+    };
+
+    const onEnded = () => {
+      setIsPlaying(false);
+      setPlayhead(trimStart);
+    };
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("ended", onEnded);
+
+    audio.play().catch(() => setIsPlaying(false));
+    setIsPlaying(true);
+    setPlayhead(trimStart);
+  }, [isPlaying, selectedFile, audioDuration, trimStart, trimEnd, volume]);
+
+  useEffect(() => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.volume = volume;
+    }
+  }, [volume]);
+
   const startPct = audioDuration > 0 ? (trimStart / audioDuration) * 100 : 0;
   const endPct = audioDuration > 0 ? (trimEnd / audioDuration) * 100 : 100;
 
@@ -222,6 +296,10 @@ export function AudioConverter() {
     setTrimEnabled(false);
     setTrimStart(0);
     setTrimEnd(0);
+    audioPlayerRef.current?.pause();
+    audioPlayerRef.current = null;
+    setIsPlaying(false);
+    setPlayhead(0);
   };
 
   // ─── Polling ──────────────────────────────────────────────────────────────
@@ -245,11 +323,11 @@ export function AudioConverter() {
         setResult((previous: PollingResultUpdater) =>
           previous
             ? {
-                ...previous,
-                status: JOB_STATUS.completed,
-                download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/audio/jobs/${jobId}/download`,
-                output_filename: statusPayload.output_path?.split("/").pop() ?? null,
-              }
+              ...previous,
+              status: JOB_STATUS.completed,
+              download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/audio/jobs/${jobId}/download`,
+              output_filename: statusPayload.output_path?.split("/").pop() ?? null,
+            }
             : previous,
         );
         return;
@@ -417,6 +495,14 @@ export function AudioConverter() {
               >
                 <div className="waveform-handle-grip" />
               </div>
+
+              {/* Playhead position indicator */}
+              {audioDuration > 0 && (
+                <div
+                  className="waveform-playhead"
+                  style={{ left: `${(playhead / audioDuration) * 100}%` }}
+                />
+              )}
             </div>
 
             {/* Timestamps */}
@@ -424,6 +510,44 @@ export function AudioConverter() {
               <span>{formatTime(trimStart)}</span>
               <span className="waveform-time-center">{formatTime(audioDuration)}</span>
               <span>{formatTime(trimEnd)}</span>
+            </div>
+
+            {/* Play preview controls + volume */}
+            <div className="waveform-controls-row">
+              <button
+                type="button"
+                className="trim-play-btn"
+                onClick={handlePlayPreview}
+                title={isPlaying ? "Pause preview" : "Play preview (trimmed range)"}
+              >
+                {isPlaying ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
+                  </svg>
+                )}
+              </button>
+              <span className="trim-playhead-time">{formatTime(isPlaying ? playhead : trimStart)}</span>
+              <div className="trim-volume-group">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" className="trim-volume-icon">
+                  <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z" />
+                  <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z" />
+                  <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z" />
+                </svg>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={volume}
+                  onChange={(e) => setVolume(Number(e.target.value))}
+                  className="trim-volume-slider"
+                />
+                <span className="trim-volume-pct">{Math.round(volume * 100)}%</span>
+              </div>
             </div>
 
             <div className="trim-meta-row">
@@ -470,7 +594,7 @@ export function AudioConverter() {
         ) : null}
 
         <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Converting..." : "Convert audio"}
+          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert audio"}
         </button>
       </form>
 

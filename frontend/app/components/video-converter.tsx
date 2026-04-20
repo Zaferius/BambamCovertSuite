@@ -433,11 +433,11 @@ export function VideoConverter() {
         setResult((previous) =>
           previous
             ? {
-                ...previous,
-                status: JOB_STATUS.completed,
-                download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/video/jobs/${jobId}/download`,
-                output_filename: statusPayload.output_path?.split("/").pop() ?? null,
-              }
+              ...previous,
+              status: JOB_STATUS.completed,
+              download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/video/jobs/${jobId}/download`,
+              output_filename: statusPayload.output_path?.split("/").pop() ?? null,
+            }
             : previous,
         );
         return;
@@ -727,7 +727,7 @@ export function VideoConverter() {
         {selectedFiles.length > 1 ? <p className="selection-hint">Trim is available for single file mode.</p> : null}
 
         <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Converting..." : "Convert video"}
+          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert video"}
         </button>
       </form>
 

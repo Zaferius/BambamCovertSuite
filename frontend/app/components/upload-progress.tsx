@@ -22,6 +22,19 @@ export function UploadProgressPanel({ files }: Props) {
 
   return (
     <div className="upload-progress-panel">
+      <div className="upload-progress-header">
+        <span className="upload-progress-dot" />
+        <span className="upload-progress-heading">
+          Uploading{files.length > 1 ? ` ${files.length} files` : ""}…
+        </span>
+        <span className="upload-progress-overall-pct">{overallPct}%</span>
+        {!hasMany && (
+          <div className="upload-progress-overall-track">
+            <div className="upload-progress-overall-fill" style={{ width: `${overallPct}%` }} />
+          </div>
+        )}
+      </div>
+
       {hasMany && (
         <button
           type="button"

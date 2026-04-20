@@ -73,11 +73,11 @@ export function ImageConverter() {
         setResult((previous) =>
           previous
             ? {
-                ...previous,
-                status: JOB_STATUS.completed,
-                download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/image/jobs/${jobId}/download`,
-                output_filename: statusPayload.output_path?.split("/").pop() ?? null,
-              }
+              ...previous,
+              status: JOB_STATUS.completed,
+              download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/image/jobs/${jobId}/download`,
+              output_filename: statusPayload.output_path?.split("/").pop() ?? null,
+            }
             : previous,
         );
         return;
@@ -189,7 +189,7 @@ export function ImageConverter() {
         </div>
 
         <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Converting..." : "Convert image"}
+          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert image"}
         </button>
       </form>
 

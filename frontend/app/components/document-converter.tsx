@@ -10,15 +10,15 @@ import { DOCUMENT_ACCEPT_ATTR, DOCUMENT_FORMATS, JOB_STATUS, POLL_INTERVAL_MS } 
 
 
 const formatsBySource: Record<string, string[]> = {
-  pdf:  ["ODT", "TXT"],
+  pdf: ["ODT", "TXT"],
   docx: [...DOCUMENT_FORMATS],
-  doc:  [...DOCUMENT_FORMATS],
-  odt:  ["PDF", "DOCX", "TXT"],
-  rtf:  [...DOCUMENT_FORMATS],
-  txt:  ["PDF", "DOCX", "ODT"],
-  xls:  ["PDF"],
+  doc: [...DOCUMENT_FORMATS],
+  odt: ["PDF", "DOCX", "TXT"],
+  rtf: [...DOCUMENT_FORMATS],
+  txt: ["PDF", "DOCX", "ODT"],
+  xls: ["PDF"],
   xlsx: ["PDF"],
-  ppt:  ["PDF"],
+  ppt: ["PDF"],
   pptx: ["PDF"],
 };
 
@@ -89,11 +89,11 @@ export function DocumentConverter() {
         setResult((previous) =>
           previous
             ? {
-                ...previous,
-                status: JOB_STATUS.completed,
-                download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/document/jobs/${jobId}/download`,
-                output_filename: statusPayload.output_path?.split("/").pop() ?? null,
-              }
+              ...previous,
+              status: JOB_STATUS.completed,
+              download_url: isBatch ? `/batch/jobs/${jobId}/download` : `/document/jobs/${jobId}/download`,
+              output_filename: statusPayload.output_path?.split("/").pop() ?? null,
+            }
             : previous,
         );
         return;
@@ -186,7 +186,7 @@ export function DocumentConverter() {
         </label>
 
         <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Converting..." : "Convert document"}
+          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert document"}
         </button>
       </form>
 

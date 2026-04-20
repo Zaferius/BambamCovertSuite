@@ -107,7 +107,6 @@ export function VideoConverter() {
 
     if (files.length === 1 && file) {
       setPreviewUrl(URL.createObjectURL(file));
-      setTrimEnabled(true);
     }
 
     setErrorMessage(null);
@@ -542,209 +541,197 @@ export function VideoConverter() {
           <input className="file-input" type="file" accept={VIDEO_ACCEPT_ATTR} multiple onChange={handleFileChange} />
         </label>
 
-        <div className="form-grid">
-          <label className="field-group">
-            <span>Target format</span>
-            <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
-              {VIDEO_FORMATS.map((format) => (
-                <option key={format} value={format}>
-                  {format}
-                </option>
-              ))}
-            </select>
-          </label>
+        {selectedFiles.length > 0 && (
+          <div className="converter-settings-reveal">
+            <div className="form-grid">
+              <label className="field-group">
+                <span>Target format</span>
+                <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
+                  {VIDEO_FORMATS.map((format) => (
+                    <option key={format} value={format}>
+                      {format}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          <label className="field-group">
-            <span>FPS (0 keeps source)</span>
-            <input type="number" min="0" value={fps} onChange={(event) => setFps(Number(event.target.value))} />
-          </label>
-        </div>
-
-        <label className="checkbox-group">
-          <input type="checkbox" checked={resizeEnabled} onChange={(event) => setResizeEnabled(event.target.checked)} />
-          <span>Enable crop</span>
-        </label>
-
-        {selectedFiles.length === 1 && previewUrl ? (
-          <section className="trim-card">
-            <div className="trim-header">
-              <h3>Trim</h3>
-              <label className="checkbox-group">
-                <input type="checkbox" checked={trimEnabled} onChange={(event) => setTrimEnabled(event.target.checked)} />
-                <span>Enable trim</span>
+              <label className="field-group">
+                <span>FPS (0 keeps source)</span>
+                <input type="number" min="0" value={fps} onChange={(event) => setFps(Number(event.target.value))} />
               </label>
             </div>
 
-            <div ref={resizeStageRef} className="video-resize-stage">
-              <video ref={videoRef} className="trim-preview" src={previewUrl} controls={!resizeEnabled} preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
-              {resizeEnabled ? (
-                <div
-                  className="video-resize-overlay"
-                  style={{ left: `${overlayRect.left * 100}%`, top: `${overlayRect.top * 100}%`, width: `${overlayRect.w * 100}%`, height: `${overlayRect.h * 100}%`, cursor: isMovingOverlay ? "grabbing" : "grab", pointerEvents: "auto" }}
-                  onMouseDown={startOverlayMove}
-                  onTouchStart={startOverlayMoveTouch}
+            {selectedFiles.length === 1 && (
+              <div className="feature-toggles-row">
+                <button
+                  type="button"
+                  className={`feature-toggle-btn${resizeEnabled ? " active" : ""}`}
+                  onClick={() => setResizeEnabled((v) => !v)}
                 >
-                  <span className="resize-overlay-label">
-                    {width} × {height}px
-                    {(overlayRect.left > 0 || overlayRect.top > 0) && (
-                      <> @ {Math.round(overlayRect.left * sourceWidth)},{Math.round(overlayRect.top * sourceHeight)}</>
-                    )}
-                  </span>
-                  {(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeHandle[]).map((handle) => (
-                    <button
-                      key={handle}
-                      type="button"
-                      className={`resize-handle resize-handle-${handle}`}
-                      onMouseDown={startResizeDrag(handle)}
-                      onTouchStart={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const stage = resizeStageRef.current;
-                        if (!stage) return;
-                        const touch = e.touches[0];
-                        if (!touch) return;
-                        resizeDragStartRef.current = {
-                          startX: touch.clientX,
-                          startY: touch.clientY,
-                          stageRect: stage.getBoundingClientRect(),
-                          snapLeft: overlayRect.left,
-                          snapTop: overlayRect.top,
-                          snapW: overlayRect.w,
-                          snapH: overlayRect.h,
-                        };
-                        setActiveResizeHandle(handle);
-                      }}
-                      aria-label={`Resize ${handle}`}
-                    />
-                  ))}
+                  <span className="feature-toggle-dot" />
+                  Crop
+                </button>
+                <button
+                  type="button"
+                  className={`feature-toggle-btn${trimEnabled ? " active" : ""}`}
+                  onClick={() => setTrimEnabled((v) => !v)}
+                >
+                  <span className="feature-toggle-dot" />
+                  Trim
+                </button>
+              </div>
+            )}
+
+            {selectedFiles.length === 1 && previewUrl && (resizeEnabled || trimEnabled) ? (
+              <section className="trim-card">
+                <div ref={resizeStageRef} className="video-resize-stage">
+                  <video ref={videoRef} className="trim-preview" src={previewUrl} controls={!resizeEnabled} preload="metadata" onLoadedMetadata={handleMetadataLoaded} />
+                  {resizeEnabled ? (
+                    <div
+                      className="video-resize-overlay"
+                      style={{ left: `${overlayRect.left * 100}%`, top: `${overlayRect.top * 100}%`, width: `${overlayRect.w * 100}%`, height: `${overlayRect.h * 100}%`, cursor: isMovingOverlay ? "grabbing" : "grab", pointerEvents: "auto" }}
+                      onMouseDown={startOverlayMove}
+                      onTouchStart={startOverlayMoveTouch}
+                    >
+                      <span className="resize-overlay-label">
+                        {width} × {height}px
+                        {(overlayRect.left > 0 || overlayRect.top > 0) && (
+                          <> @ {Math.round(overlayRect.left * sourceWidth)},{Math.round(overlayRect.top * sourceHeight)}</>
+                        )}
+                      </span>
+                      {(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as ResizeHandle[]).map((handle) => (
+                        <button
+                          key={handle}
+                          type="button"
+                          className={`resize-handle resize-handle-${handle}`}
+                          onMouseDown={startResizeDrag(handle)}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const stage = resizeStageRef.current;
+                            if (!stage) return;
+                            const touch = e.touches[0];
+                            if (!touch) return;
+                            resizeDragStartRef.current = {
+                              startX: touch.clientX,
+                              startY: touch.clientY,
+                              stageRect: stage.getBoundingClientRect(),
+                              snapLeft: overlayRect.left,
+                              snapTop: overlayRect.top,
+                              snapW: overlayRect.w,
+                              snapH: overlayRect.h,
+                            };
+                            setActiveResizeHandle(handle);
+                          }}
+                          aria-label={`Resize ${handle}`}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
 
-            <div
-              ref={waveformAreaRef}
-              className="waveform-area"
-              style={{ userSelect: "none", height: "60px", marginTop: "12px", borderRadius: "8px" }}
-            >
-              <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 10px)", opacity: 0.5 }} />
+                {trimEnabled && (
+                  <>
+                    <div
+                      ref={waveformAreaRef}
+                      className="waveform-area"
+                      style={{ userSelect: "none", height: "60px", marginTop: "12px", borderRadius: "8px" }}
+                    >
+                      <div style={{ width: "100%", height: "100%", background: "repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 2px, transparent 2px, transparent 10px)", opacity: 0.5 }} />
 
-              <div className="waveform-mask" style={{ left: 0, width: `${trimStartPercent}%` }} />
-              <div className="waveform-mask" style={{ right: 0, width: `${100 - trimEndPercent}%` }} />
+                      <div className="waveform-mask" style={{ left: 0, width: `${trimStartPercent}%` }} />
+                      <div className="waveform-mask" style={{ right: 0, width: `${100 - trimEndPercent}%` }} />
 
-              <div
-                className="waveform-handle"
-                style={{ left: `${trimStartPercent}%`, opacity: trimEnabled ? 1 : 0.4 }}
-                onMouseDown={(e) => {
-                  if (!trimEnabled) return;
-                  e.preventDefault();
-                  setIsDragging("start");
-                }}
-                onTouchStart={(e) => {
-                  if (!trimEnabled) return;
-                  e.preventDefault();
-                  setIsDragging("start");
-                }}
-              >
-                <div className="waveform-handle-grip" />
-              </div>
+                      <div
+                        className="waveform-handle"
+                        style={{ left: `${trimStartPercent}%` }}
+                        onMouseDown={(e) => { e.preventDefault(); setIsDragging("start"); }}
+                        onTouchStart={(e) => { e.preventDefault(); setIsDragging("start"); }}
+                      >
+                        <div className="waveform-handle-grip" />
+                      </div>
 
-              <div
-                className="waveform-handle"
-                style={{ left: `${trimEndPercent}%`, opacity: trimEnabled ? 1 : 0.4 }}
-                onMouseDown={(e) => {
-                  if (!trimEnabled) return;
-                  e.preventDefault();
-                  setIsDragging("end");
-                }}
-                onTouchStart={(e) => {
-                  if (!trimEnabled) return;
-                  e.preventDefault();
-                  setIsDragging("end");
-                }}
-              >
-                <div className="waveform-handle-grip" />
-              </div>
-            </div>
+                      <div
+                        className="waveform-handle"
+                        style={{ left: `${trimEndPercent}%` }}
+                        onMouseDown={(e) => { e.preventDefault(); setIsDragging("end"); }}
+                        onTouchStart={(e) => { e.preventDefault(); setIsDragging("end"); }}
+                      >
+                        <div className="waveform-handle-grip" />
+                      </div>
+                    </div>
 
-            <div className="waveform-timestamps" style={{ marginBottom: "12px" }}>
-              <span>{formatTime(trimStart)}</span>
-              <span className="waveform-time-center">{formatTime(videoDuration)}</span>
-              <span>{formatTime(trimEnd)}</span>
-            </div>
+                    <div className="waveform-timestamps" style={{ marginBottom: "12px" }}>
+                      <span>{formatTime(trimStart)}</span>
+                      <span className="waveform-time-center">{formatTime(videoDuration)}</span>
+                      <span>{formatTime(trimEnd)}</span>
+                    </div>
 
-            <div className="trim-meta-row">
-              <span>Duration: {videoDuration > 0 ? `${videoDuration.toFixed(2)}s` : "loading..."}</span>
-              <span>
-                Range: {trimStart.toFixed(2)}s → {trimEnd.toFixed(2)}s
-              </span>
-            </div>
+                    <div className="trim-meta-row">
+                      <span>Duration: {videoDuration > 0 ? `${videoDuration.toFixed(2)}s` : "loading..."}</span>
+                      <span>Range: {trimStart.toFixed(2)}s → {trimEnd.toFixed(2)}s</span>
+                    </div>
 
-            <div className="field-group">
-              <span>Trim range</span>
-              <div className="trim-manual-row">
-                <label className="field-group trim-manual-field">
-                  <span>Start (MM:SS.s)</span>
-                  <input
-                    key={trimStart}
-                    type="text"
-                    defaultValue={formatTime(trimStart)}
-                    disabled={!trimEnabled || videoDuration <= 0}
-                    placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
-                    onBlur={(e) => {
-                      const s = mmssToSeconds(e.target.value);
-                      if (s !== null) {
-                        const newStart = Number(Math.min(Math.max(s, 0), trimEnd - 0.1).toFixed(2));
-                        setTrimStart(newStart);
-                        if (videoRef.current) videoRef.current.currentTime = newStart;
-                      }
-                    }}
-                  />
-                </label>
+                    <div className="field-group">
+                      <span>Trim range</span>
+                      <div className="trim-manual-row">
+                        <label className="field-group trim-manual-field">
+                          <span>Start (MM:SS.s)</span>
+                          <input
+                            key={trimStart}
+                            type="text"
+                            defaultValue={formatTime(trimStart)}
+                            disabled={videoDuration <= 0}
+                            placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
+                            onBlur={(e) => {
+                              const s = mmssToSeconds(e.target.value);
+                              if (s !== null) {
+                                const newStart = Number(Math.min(Math.max(s, 0), trimEnd - 0.1).toFixed(2));
+                                setTrimStart(newStart);
+                                if (videoRef.current) videoRef.current.currentTime = newStart;
+                              }
+                            }}
+                          />
+                        </label>
 
-                <label className="field-group trim-manual-field">
-                  <span>End (MM:SS.s)</span>
-                  <input
-                    key={trimEnd}
-                    type="text"
-                    defaultValue={formatTime(trimEnd)}
-                    disabled={!trimEnabled || videoDuration <= 0}
-                    placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
-                    onBlur={(e) => {
-                      const s = mmssToSeconds(e.target.value);
-                      if (s !== null) {
-                        const newEnd = Number(Math.max(Math.min(s, videoDuration), trimStart + 0.1).toFixed(2));
-                        setTrimEnd(newEnd);
-                        if (videoRef.current) videoRef.current.currentTime = newEnd;
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-          </section>
-        ) : null}
+                        <label className="field-group trim-manual-field">
+                          <span>End (MM:SS.s)</span>
+                          <input
+                            key={trimEnd}
+                            type="text"
+                            defaultValue={formatTime(trimEnd)}
+                            disabled={videoDuration <= 0}
+                            placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
+                            onBlur={(e) => {
+                              const s = mmssToSeconds(e.target.value);
+                              if (s !== null) {
+                                const newEnd = Number(Math.max(Math.min(s, videoDuration), trimStart + 0.1).toFixed(2));
+                                setTrimEnd(newEnd);
+                                if (videoRef.current) videoRef.current.currentTime = newEnd;
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </section>
+            ) : null}
 
-        {selectedFiles.length > 1 ? <p className="selection-hint">Trim is available for single file mode.</p> : null}
+            {selectedFiles.length > 1 && (
+              <p className="selection-hint">Trim and crop are available for single file mode.</p>
+            )}
 
-        <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert video"}
-        </button>
+            <button className="primary-button" type="submit" disabled={isSubmitting}>
+              {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert video"}
+            </button>
+          </div>
+        )}
       </form>
 
       <UploadProgressPanel files={uploadProgress} />
       <ConversionLoader isVisible={isSubmitting && uploadProgress.length === 0} jobStatus={jobStatus} />
-
-      {selectedFiles.length > 1 ? (
-        <p className="selection-hint">
-          Selected files: <strong>{selectedFiles.length}</strong>
-        </p>
-      ) : null}
-
-      {selectedFiles.length === 1 && selectedFile ? (
-        <p className="selection-hint">
-          Selected file: <strong>{selectedFile.name}</strong>
-        </p>
-      ) : null}
 
       {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
 

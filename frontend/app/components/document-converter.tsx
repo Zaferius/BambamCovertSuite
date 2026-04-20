@@ -174,36 +174,28 @@ export function DocumentConverter() {
           <input className="file-input" type="file" multiple accept={DOCUMENT_ACCEPT_ATTR} onChange={handleFileChange} />
         </label>
 
-        <label className="field-group">
-          <span>Target format</span>
-          <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
-            {availableFormats.map((format) => (
-              <option key={format} value={format}>
-                {format}
-              </option>
-            ))}
-          </select>
-        </label>
+        {selectedFiles.length > 0 && (
+          <div className="converter-settings-reveal">
+            <label className="field-group">
+              <span>Target format</span>
+              <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
+                {availableFormats.map((format) => (
+                  <option key={format} value={format}>
+                    {format}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert document"}
-        </button>
+            <button className="primary-button" type="submit" disabled={isSubmitting}>
+              {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert document"}
+            </button>
+          </div>
+        )}
       </form>
 
       <UploadProgressPanel files={uploadProgress} />
       <ConversionLoader isVisible={isSubmitting && uploadProgress.length === 0} jobStatus={jobStatus} />
-
-      {selectedFiles.length > 1 ? (
-        <p className="selection-hint">
-          Selected files: <strong>{selectedFiles.length}</strong>
-        </p>
-      ) : null}
-
-      {selectedFiles.length === 1 && selectedFile ? (
-        <p className="selection-hint">
-          Selected file: <strong>{selectedFile.name}</strong>
-        </p>
-      ) : null}
 
       {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
 

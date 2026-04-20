@@ -162,51 +162,43 @@ export function ImageConverter() {
           <input className="file-input" type="file" accept={IMAGE_ACCEPT_ATTR} multiple onChange={handleFileChange} />
         </label>
 
-        <div className="form-grid">
-          <label className="field-group">
-            <span>Target format</span>
-            <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
-              {IMAGE_FORMATS.map((format) => (
-                <option key={format} value={format}>
-                  {format}
-                </option>
-              ))}
-            </select>
-          </label>
+        {selectedFiles.length > 0 && (
+          <div className="converter-settings-reveal">
+            <div className="form-grid">
+              <label className="field-group">
+                <span>Target format</span>
+                <select value={targetFormat} onChange={(event) => setTargetFormat(event.target.value)}>
+                  {IMAGE_FORMATS.map((format) => (
+                    <option key={format} value={format}>
+                      {format}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          {qualitySupported ? (
-            <label className="field-group">
-              <span>Quality: {quality}</span>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                value={quality}
-                onChange={(event) => setQuality(Number(event.target.value))}
-              />
-            </label>
-          ) : null}
-        </div>
+              {qualitySupported ? (
+                <label className="field-group">
+                  <span>Quality: {quality}</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    value={quality}
+                    onChange={(event) => setQuality(Number(event.target.value))}
+                  />
+                </label>
+              ) : null}
+            </div>
 
-        <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert image"}
-        </button>
+            <button className="primary-button" type="submit" disabled={isSubmitting}>
+              {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert image"}
+            </button>
+          </div>
+        )}
       </form>
 
       <UploadProgressPanel files={uploadProgress} />
       <ConversionLoader isVisible={isSubmitting && uploadProgress.length === 0} jobStatus={jobStatus} />
-
-      {selectedFiles.length > 1 ? (
-        <p className="selection-hint">
-          Selected files: <strong>{selectedFiles.length}</strong>
-        </p>
-      ) : null}
-
-      {selectedFiles.length === 1 && selectedFile ? (
-        <p className="selection-hint">
-          Selected file: <strong>{selectedFile.name}</strong>
-        </p>
-      ) : null}
 
       {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
 

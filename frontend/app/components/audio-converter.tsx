@@ -191,7 +191,7 @@ export function AudioConverter() {
     const buf = audioBufferRef.current;
     const raf = window.requestAnimationFrame(() => drawWaveform(buf));
     return () => window.cancelAnimationFrame(raf);
-  }, [waveformReady, drawWaveform]);
+  }, [waveformReady, drawWaveform, trimEnabled]);
 
   // ─── Drag handling ────────────────────────────────────────────────────────
 
@@ -421,197 +421,179 @@ export function AudioConverter() {
           <input className="file-input" type="file" accept={AUDIO_ACCEPT_ATTR} multiple onChange={handleFileChange} />
         </label>
 
-        <div className="form-grid">
-          <label className="field-group">
-            <span>Target format</span>
-            <select value={targetFormat} onChange={(e: ChangeEvent<HTMLSelectElement>) => setTargetFormat(e.target.value)}>
-              {AUDIO_FORMATS.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
-          </label>
+        {selectedFiles.length > 0 && (
+          <div className="converter-settings-reveal">
+            <div className="form-grid">
+              <label className="field-group">
+                <span>Target format</span>
+                <select value={targetFormat} onChange={(e: ChangeEvent<HTMLSelectElement>) => setTargetFormat(e.target.value)}>
+                  {AUDIO_FORMATS.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </label>
 
-          <label className="field-group">
-            <span>Bitrate</span>
-            <select value={bitrate} onChange={(e: ChangeEvent<HTMLSelectElement>) => setBitrate(e.target.value)}>
-              {AUDIO_BITRATES.map((v) => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {/* Waveform trim — single file only */}
-        {selectedFiles.length === 1 && waveformReady ? (
-          <section className="trim-card">
-            <div className="trim-header">
-              <h3>Trim</h3>
-              <label className="checkbox-group">
-                <input
-                  type="checkbox"
-                  checked={trimEnabled}
-                  onChange={(e) => setTrimEnabled(e.target.checked)}
-                />
-                <span>Enable trim</span>
+              <label className="field-group">
+                <span>Bitrate</span>
+                <select value={bitrate} onChange={(e: ChangeEvent<HTMLSelectElement>) => setBitrate(e.target.value)}>
+                  {AUDIO_BITRATES.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
               </label>
             </div>
 
-            {/* Waveform canvas + draggable handles */}
-            <div
-              ref={waveformAreaRef}
-              className="waveform-area"
-              style={{ userSelect: "none" }}
-            >
-              <span className="waveform-filename">{selectedFile?.name}</span>
-
-              <canvas ref={canvasRef} className="waveform-canvas" />
-
-              {/* Dark masks over non-selected regions */}
-              <div className="waveform-mask" style={{ left: 0, width: `${startPct}%` }} />
-              <div className="waveform-mask" style={{ right: 0, width: `${100 - endPct}%` }} />
-
-              {/* Start handle */}
-              <div
-                className="waveform-handle"
-                style={{ left: `${startPct}%`, opacity: trimEnabled ? 1 : 0.4 }}
-                onMouseDown={(e) => {
-                  if (!trimEnabled) return;
-                  e.preventDefault();
-                  setIsDragging("start");
-                }}
-              >
-                <div className="waveform-handle-grip" />
+            {selectedFiles.length === 1 && (
+              <div className="feature-toggles-row">
+                <button
+                  type="button"
+                  className={`feature-toggle-btn${trimEnabled ? " active" : ""}`}
+                  onClick={() => setTrimEnabled((v) => !v)}
+                >
+                  <span className="feature-toggle-dot" />
+                  Trim
+                </button>
               </div>
+            )}
 
-              {/* End handle */}
-              <div
-                className="waveform-handle"
-                style={{ left: `${endPct}%`, opacity: trimEnabled ? 1 : 0.4 }}
-                onMouseDown={(e) => {
-                  if (!trimEnabled) return;
-                  e.preventDefault();
-                  setIsDragging("end");
-                }}
-              >
-                <div className="waveform-handle-grip" />
-              </div>
+            {selectedFiles.length === 1 && trimEnabled && !waveformReady && (
+              <p className="waveform-decoding">Decoding waveform…</p>
+            )}
 
-              {/* Playhead position indicator */}
-              {audioDuration > 0 && (
+            {selectedFiles.length === 1 && trimEnabled && waveformReady ? (
+              <section className="trim-card">
+                <div className="trim-header">
+                  <h3>Trim</h3>
+                </div>
+
                 <div
-                  className="waveform-playhead"
-                  style={{ left: `${(playhead / audioDuration) * 100}%` }}
-                />
-              )}
-            </div>
+                  ref={waveformAreaRef}
+                  className="waveform-area"
+                  style={{ userSelect: "none" }}
+                >
+                  <span className="waveform-filename">{selectedFile?.name}</span>
 
-            {/* Timestamps */}
-            <div className="waveform-timestamps">
-              <span>{formatTime(trimStart)}</span>
-              <span className="waveform-time-center">{formatTime(audioDuration)}</span>
-              <span>{formatTime(trimEnd)}</span>
-            </div>
+                  <canvas ref={canvasRef} className="waveform-canvas" />
 
-            {/* Play preview controls + volume */}
-            <div className="waveform-controls-row">
-              <button
-                type="button"
-                className="trim-play-btn"
-                onClick={handlePlayPreview}
-                title={isPlaying ? "Pause preview" : "Play preview (trimmed range)"}
-              >
-                {isPlaying ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
-                  </svg>
-                )}
-              </button>
-              <span className="trim-playhead-time">{formatTime(isPlaying ? playhead : trimStart)}</span>
-              <div className="trim-volume-group">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" className="trim-volume-icon">
-                  <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z" />
-                  <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z" />
-                  <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z" />
-                </svg>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
-                  className="trim-volume-slider"
-                />
-                <span className="trim-volume-pct">{Math.round(volume * 100)}%</span>
-              </div>
-            </div>
+                  <div className="waveform-mask" style={{ left: 0, width: `${startPct}%` }} />
+                  <div className="waveform-mask" style={{ right: 0, width: `${100 - endPct}%` }} />
 
-            <div className="trim-meta-row">
-              <span>Duration: {audioDuration > 0 ? `${audioDuration.toFixed(2)}s` : "loading…"}</span>
-              <span>Range: {trimStart.toFixed(2)}s → {trimEnd.toFixed(2)}s</span>
-            </div>
+                  <div
+                    className="waveform-handle"
+                    style={{ left: `${startPct}%` }}
+                    onMouseDown={(e) => { e.preventDefault(); setIsDragging("start"); }}
+                  >
+                    <div className="waveform-handle-grip" />
+                  </div>
 
-            {/* Manual inputs — MM:SS.s format */}
-            <div className="trim-manual-row">
-              <label className="field-group trim-manual-field">
-                <span>Start (MM:SS.s)</span>
-                <input
-                  key={trimStart}
-                  type="text"
-                  defaultValue={formatTime(trimStart)}
-                  disabled={!trimEnabled}
-                  placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
-                  onBlur={(e) => {
-                    const s = mmssToSeconds(e.target.value);
-                    if (s !== null) setTrimStart(Number(Math.min(Math.max(s, 0), trimEnd - 0.1).toFixed(2)));
-                  }}
-                />
-              </label>
-              <label className="field-group trim-manual-field">
-                <span>End (MM:SS.s)</span>
-                <input
-                  key={trimEnd}
-                  type="text"
-                  defaultValue={formatTime(trimEnd)}
-                  disabled={!trimEnabled}
-                  placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
-                  onBlur={(e) => {
-                    const s = mmssToSeconds(e.target.value);
-                    if (s !== null) setTrimEnd(Number(Math.max(Math.min(s, audioDuration), trimStart + 0.1).toFixed(2)));
-                  }}
-                />
-              </label>
-            </div>
-          </section>
-        ) : null}
+                  <div
+                    className="waveform-handle"
+                    style={{ left: `${endPct}%` }}
+                    onMouseDown={(e) => { e.preventDefault(); setIsDragging("end"); }}
+                  >
+                    <div className="waveform-handle-grip" />
+                  </div>
 
-        {selectedFiles.length > 1 ? (
-          <p className="selection-hint">Trim is available for single file mode only.</p>
-        ) : null}
+                  {audioDuration > 0 && (
+                    <div
+                      className="waveform-playhead"
+                      style={{ left: `${(playhead / audioDuration) * 100}%` }}
+                    />
+                  )}
+                </div>
 
-        <button className="primary-button" type="submit" disabled={isSubmitting}>
-          {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert audio"}
-        </button>
+                <div className="waveform-timestamps">
+                  <span>{formatTime(trimStart)}</span>
+                  <span className="waveform-time-center">{formatTime(audioDuration)}</span>
+                  <span>{formatTime(trimEnd)}</span>
+                </div>
+
+                <div className="waveform-controls-row">
+                  <button
+                    type="button"
+                    className="trim-play-btn"
+                    onClick={handlePlayPreview}
+                    title={isPlaying ? "Pause preview" : "Play preview (trimmed range)"}
+                  >
+                    {isPlaying ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
+                      </svg>
+                    )}
+                  </button>
+                  <span className="trim-playhead-time">{formatTime(isPlaying ? playhead : trimStart)}</span>
+                  <div className="trim-volume-group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" className="trim-volume-icon">
+                      <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z" />
+                      <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z" />
+                      <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z" />
+                    </svg>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={volume}
+                      onChange={(e) => setVolume(Number(e.target.value))}
+                      className="trim-volume-slider"
+                    />
+                    <span className="trim-volume-pct">{Math.round(volume * 100)}%</span>
+                  </div>
+                </div>
+
+                <div className="trim-meta-row">
+                  <span>Duration: {audioDuration > 0 ? `${audioDuration.toFixed(2)}s` : "loading…"}</span>
+                  <span>Range: {trimStart.toFixed(2)}s → {trimEnd.toFixed(2)}s</span>
+                </div>
+
+                <div className="trim-manual-row">
+                  <label className="field-group trim-manual-field">
+                    <span>Start (MM:SS.s)</span>
+                    <input
+                      key={trimStart}
+                      type="text"
+                      defaultValue={formatTime(trimStart)}
+                      placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
+                      onBlur={(e) => {
+                        const s = mmssToSeconds(e.target.value);
+                        if (s !== null) setTrimStart(Number(Math.min(Math.max(s, 0), trimEnd - 0.1).toFixed(2)));
+                      }}
+                    />
+                  </label>
+                  <label className="field-group trim-manual-field">
+                    <span>End (MM:SS.s)</span>
+                    <input
+                      key={trimEnd}
+                      type="text"
+                      defaultValue={formatTime(trimEnd)}
+                      placeholder={AUDIO_TIME_FORMAT_PLACEHOLDER}
+                      onBlur={(e) => {
+                        const s = mmssToSeconds(e.target.value);
+                        if (s !== null) setTrimEnd(Number(Math.max(Math.min(s, audioDuration), trimStart + 0.1).toFixed(2)));
+                      }}
+                    />
+                  </label>
+                </div>
+              </section>
+            ) : null}
+
+            {selectedFiles.length > 1 && (
+              <p className="selection-hint">Trim is available for single file mode only.</p>
+            )}
+
+            <button className="primary-button" type="submit" disabled={isSubmitting}>
+              {uploadProgress.length > 0 ? "Uploading..." : isSubmitting ? "Converting..." : "Convert audio"}
+            </button>
+          </div>
+        )}
       </form>
 
       <UploadProgressPanel files={uploadProgress} />
       <ConversionLoader isVisible={isSubmitting && uploadProgress.length === 0} jobStatus={jobStatus} />
-
-      {selectedFiles.length > 1 ? (
-        <p className="selection-hint">
-          Selected files: <strong>{selectedFiles.length}</strong>
-        </p>
-      ) : null}
-
-      {selectedFiles.length === 1 && selectedFile ? (
-        <p className="selection-hint">
-          Selected file: <strong>{selectedFile.name}</strong>
-        </p>
-      ) : null}
 
       {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
 

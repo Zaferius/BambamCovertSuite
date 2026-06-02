@@ -25,6 +25,10 @@ export const AUDIO_TIME_FORMAT_PLACEHOLDER = "00:00.0";
 export const VIDEO_FORMATS = ["MP4", "AVI", "MKV", "MOV", "WMV", "FLV", "WEBM", "GIF"] as const;
 export const VIDEO_ACCEPT_ATTR = ".mp4,.mov,.mkv,.avi,.webm,.gif,.wmv,.flv";
 
+export const YOUTUBE_DOWNLOAD_MODES = ["video", "audio"] as const;
+export const YOUTUBE_VIDEO_QUALITIES = ["144p", "240p", "360p", "480p", "720p", "1080p", "1440p", "2160p"] as const;
+export const YOUTUBE_AUDIO_FORMATS = ["mp3", "m4a", "wav"] as const;
+
 export const DOCUMENT_FORMATS = ["PDF", "DOCX", "ODT", "TXT"] as const;
 export const DOCUMENT_ACCEPT_ATTR = ".pdf,.docx,.doc,.odt,.txt,.rtf,.xls,.xlsx,.ppt,.pptx";
 

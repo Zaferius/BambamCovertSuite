@@ -42,3 +42,8 @@ JOB_STATUS_PROCESSING = "processing"
 JOB_STATUS_COMPLETED = "completed"
 JOB_STATUS_FAILED = "failed"
 
+YOUTUBE_DOWNLOAD_MODES = ("video", "audio")
+YOUTUBE_VIDEO_QUALITY_ORDER = ("144p", "240p", "360p", "480p", "720p", "1080p", "1440p", "2160p")
+YOUTUBE_AUDIO_FORMATS = ("mp3", "m4a", "wav")
+YOUTUBE_AUDIO_QUALITY_ORDER = ("64k", "128k", "192k", "256k", "320k", "best")
+

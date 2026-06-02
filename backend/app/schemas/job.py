@@ -14,6 +14,7 @@ class JobResponse(BaseModel):
     output_filename: str | None
     error_message: str | None
     progress: int
+    progress_detail: str | None
     created_at: datetime
     updated_at: datetime
 

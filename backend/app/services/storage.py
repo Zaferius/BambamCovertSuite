@@ -15,6 +15,10 @@ class StorageService:
         safe_name = Path(original_name).name
         return self.settings.upload_dir / f"{uuid4()}_{safe_name}"
 
+    def build_virtual_input_name(self, prefix: str, extension: str = "txt") -> str:
+        normalized_extension = extension.lower().lstrip(".")
+        return f"{prefix}-{uuid4()}.{normalized_extension}"
+
     def build_output_path(self, stem: str, extension: str) -> Path:
         normalized_extension = extension.lower().lstrip(".")
         return self.settings.output_dir / f"{uuid4()}_{stem}.{normalized_extension}"

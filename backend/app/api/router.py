@@ -10,6 +10,7 @@ from app.api.routes.root import router as root_router
 from app.api.routes.video import router as video_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.batch import router as batch_router
+from app.api.routes.youtube import router as youtube_router
 
 api_router = APIRouter()
 
@@ -23,3 +24,4 @@ api_router.include_router(audio_router)
 api_router.include_router(document_router)
 api_router.include_router(jobs_router)
 api_router.include_router(video_router)
+api_router.include_router(youtube_router)

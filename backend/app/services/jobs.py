@@ -43,6 +43,16 @@ class JobService:
     def mark_processing(self, job: Job) -> Job:
         job.status = "processing"
         job.progress = 10
+        job.progress_detail = "Processing started"
+        self.db.add(job)
+        self.db.commit()
+        self.db.refresh(job)
+        return job
+
+    def update_progress(self, job: Job, progress: int, detail: str | None = None) -> Job:
+        job.progress = max(0, min(100, progress))
+        if detail is not None:
+            job.progress_detail = detail
         self.db.add(job)
         self.db.commit()
         self.db.refresh(job)
@@ -51,6 +61,7 @@ class JobService:
     def mark_completed(self, job: Job, output_path: str) -> Job:
         job.status = "completed"
         job.progress = 100
+        job.progress_detail = "Completed"
         job.output_path = output_path
         job.output_filename = output_path.split("/")[-1].split("\\")[-1]
         self.db.add(job)
@@ -61,6 +72,7 @@ class JobService:
     def mark_completed_with_bundle(self, job: Job, bundle_path: str, output_filename: str) -> Job:
         job.status = "completed"
         job.progress = 100
+        job.progress_detail = "Completed"
         job.bundle_path = bundle_path
         job.output_filename = output_filename
         self.db.add(job)
@@ -75,6 +87,7 @@ class JobService:
     def mark_failed(self, job: Job, message: str) -> Job:
         job.status = "failed"
         job.error_message = message
+        job.progress_detail = "Failed"
         self.db.add(job)
         self.db.commit()
         self.db.refresh(job)

@@ -12,6 +12,7 @@ import { ImageConverter } from "./components/image-converter";
 import { JobsDashboard } from "./components/jobs-dashboard";
 import { VideoConverter } from "./components/video-converter";
 import { UnifiedSettingsPanel } from "./components/unified-settings-panel";
+import { YouTubeDownloader } from "./components/youtube-downloader";
 
 import { useAuth } from "./lib/auth-context";
 import { useAction } from "./lib/action-context";
@@ -20,12 +21,13 @@ import { APP_VERSION } from "@/lib/version";
 import { buildApiUrl } from "./lib/api";
 import { USER_ACTIVITY_PING_INTERVAL_MS } from "./lib/app-constants";
 
-type ViewKey = "landing" | "image" | "audio" | "video" | "document" | "rename" | "jobs";
+type ViewKey = "landing" | "image" | "audio" | "video" | "youtube" | "document" | "rename" | "jobs";
 
 const landingToolItems: Array<{ key: Exclude<ViewKey, "landing">; label: string }> = [
   { key: "image", label: "Image Converter" },
   { key: "audio", label: "Sound Converter" },
   { key: "video", label: "Video Converter" },
+  { key: "youtube", label: "YouTube Downloader" },
   { key: "document", label: "Document Converter" },
   { key: "rename", label: "Batch Rename" },
   { key: "jobs", label: "Jobs" },
@@ -36,6 +38,7 @@ const navItems: Array<{ key: ViewKey; label: string }> = [
   { key: "image", label: "Image" },
   { key: "audio", label: "Sound" },
   { key: "video", label: "Video" },
+  { key: "youtube", label: "YouTube" },
   { key: "document", label: "Document" },
   { key: "rename", label: "Batch Rename" },
   { key: "jobs", label: "Jobs" },
@@ -60,7 +63,7 @@ export default function HomePage() {
     const pingServer = async () => {
       try {
         await authFetch(buildApiUrl(`/auth/ping?action=${encodeURIComponent(action)}`), { method: "POST" });
-      } catch {}
+      } catch { }
     };
 
     pingServer();
@@ -152,6 +155,9 @@ export default function HomePage() {
         </div>
         <div style={{ display: activeView === "video" ? "block" : "none" }}>
           <VideoConverter />
+        </div>
+        <div style={{ display: activeView === "youtube" ? "block" : "none" }}>
+          <YouTubeDownloader />
         </div>
         <div style={{ display: activeView === "document" ? "block" : "none" }}>
           <DocumentConverter />

@@ -13,6 +13,8 @@ type JobItem = {
   original_filename: string;
   output_filename?: string | null;
   error_message?: string | null;
+  progress?: number;
+  progress_detail?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -58,6 +60,9 @@ export function JobsDashboard() {
     if (job.job_type === "document") {
       return `${apiBaseUrl}/document/jobs/${job.id}/download`;
     }
+    if (job.job_type === "youtube" || job.job_type === "youtube_batch") {
+      return `${apiBaseUrl}/youtube/jobs/${job.id}/download`;
+    }
 
     return null;
   };
@@ -97,7 +102,7 @@ export function JobsDashboard() {
       <div className="dashboard-header">
         <div className="section-heading compact-heading">
           <h2>Job dashboard</h2>
-          <p className="jobs-dashboard-subtitle">Live history of all conversion jobs across image, sound, video, and document modules.</p>
+          <p className="jobs-dashboard-subtitle">Live history of all conversion and download jobs across image, sound, video, YouTube, and document modules.</p>
         </div>
 
         <div className="jobs-actions">
@@ -109,7 +114,7 @@ export function JobsDashboard() {
                 const payload = await response.json();
                 setCleanupMessage(payload.message || "All jobs stopped.");
                 await loadJobs();
-              } catch(e) {
+              } catch (e) {
                 setCleanupMessage("Failed to stop all jobs.");
               }
             }}>
@@ -123,7 +128,7 @@ export function JobsDashboard() {
               const payload = await response.json();
               setCleanupMessage(payload.message || "Your jobs stopped.");
               await loadJobs();
-            } catch(e) {
+            } catch (e) {
               setCleanupMessage("Failed to stop jobs.");
             }
           }}>
@@ -144,6 +149,7 @@ export function JobsDashboard() {
               <th>Type</th>
               <th>Source</th>
               <th>Status</th>
+              <th>Progress</th>
               <th>Output</th>
               <th>Updated</th>
               <th>Download</th>
@@ -152,7 +158,7 @@ export function JobsDashboard() {
           <tbody>
             {jobs.length === 0 ? (
               <tr>
-                <td colSpan={6}>No jobs yet.</td>
+                <td colSpan={7}>No jobs yet.</td>
               </tr>
             ) : (
               jobs.map((job) => (
@@ -163,6 +169,7 @@ export function JobsDashboard() {
                     <small>{job.id}</small>
                   </td>
                   <td>{job.status}</td>
+                  <td>{job.progress ?? 0}%{job.progress_detail ? ` · ${job.progress_detail}` : ""}</td>
                   <td>{job.output_filename ?? job.error_message ?? "—"}</td>
                   <td>{new Date(job.updated_at).toLocaleString()}</td>
                   <td>

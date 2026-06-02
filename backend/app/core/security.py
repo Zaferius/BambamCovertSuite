@@ -26,3 +26,18 @@ def create_access_token(subject: Any, expires_delta: timedelta | None = None) ->
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
+
+
+def create_download_token(*, subject: Any, job_id: str, expires_delta: timedelta | None = None) -> str:
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(seconds=60))
+    to_encode = {
+        "exp": expire,
+        "sub": str(subject),
+        "job_id": str(job_id),
+        "token_type": "download",
+    }
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
+
+def decode_token(token: str) -> dict[str, Any]:
+    return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])

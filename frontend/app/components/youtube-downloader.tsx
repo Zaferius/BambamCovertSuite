@@ -5,7 +5,6 @@ import { FormEvent, useMemo, useState } from "react";
 import { ConversionLoader } from "./conversion-loader";
 import { buildApiUrl, isCompletedStatus, isFailedStatus } from "../lib/api";
 import { authFetch } from "../lib/auth-fetch";
-import { AUTH_TOKEN_STORAGE_KEY } from "../lib/app-constants";
 import { useAction } from "../lib/action-context";
 import { JOB_STATUS, POLL_INTERVAL_MS, YOUTUBE_AUDIO_FORMATS, YOUTUBE_DOWNLOAD_MODES, YOUTUBE_VIDEO_QUALITIES } from "../lib/app-constants";
 
@@ -70,29 +69,19 @@ export function YouTubeDownloader() {
     const [jobProgressDetail, setJobProgressDetail] = useState<string | null>(null);
     const [result, setResult] = useState<JobResponse | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isDownloadingResult, setIsDownloadingResult] = useState(false);
 
     const { setAction } = useAction();
 
-    const downloadWithAuth = async (downloadPath: string, fallbackName: string) => {
-        const token = typeof window !== "undefined" ? localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) : null;
-        const response = await fetch(buildApiUrl(downloadPath), {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const requestDownloadUrl = async (jobId: string): Promise<string> => {
+        const response = await authFetch(buildApiUrl(`/youtube/jobs/${jobId}/download-token`), {
+            method: "POST",
         });
-
-        if (!response.ok) {
-            const payload = await response.text();
-            throw new Error(payload || "Download failed.");
+        const payload = await response.json() as { download_url?: string; detail?: string };
+        if (!response.ok || !payload.download_url) {
+            throw new Error(payload.detail ?? "Could not prepare download.");
         }
-
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = blobUrl;
-        anchor.download = fallbackName;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        window.URL.revokeObjectURL(blobUrl);
+        return buildApiUrl(payload.download_url);
     };
 
     const parsedUrls = useMemo(
@@ -334,19 +323,21 @@ export function YouTubeDownloader() {
                         <button
                             className="primary-button inline-button"
                             type="button"
+                            disabled={isDownloadingResult}
                             onClick={async () => {
                                 try {
+                                    setIsDownloadingResult(true);
                                     setErrorMessage(null);
-                                    await downloadWithAuth(
-                                        result.download_url!,
-                                        result.output_filename || (result.item_count > 1 ? "youtube-download.zip" : "youtube-download")
-                                    );
+                                    const preparedUrl = await requestDownloadUrl(result.job_id);
+                                    window.location.href = preparedUrl;
                                 } catch (error) {
                                     setErrorMessage(error instanceof Error ? error.message : "Download failed.");
+                                } finally {
+                                    setIsDownloadingResult(false);
                                 }
                             }}
                         >
-                            Download {result.item_count > 1 ? "zip bundle" : "media file"}
+                            {isDownloadingResult ? "Preparing download..." : `Download ${result.item_count > 1 ? "zip bundle" : "media file"}`}
                         </button>
                     ) : null}
                 </div>

@@ -45,3 +45,8 @@ class YouTubeJobCreateResponse(BaseModel):
     item_count: int = 1
     progress: int = 0
     progress_detail: str | None = None
+
+
+class YouTubeDownloadTokenResponse(BaseModel):
+    download_url: str
+    expires_in_seconds: int

@@ -85,14 +85,13 @@ export function YouTubeDownloader() {
         return buildApiUrl(payload.download_url);
     };
 
-    const triggerBrowserDownload = (url: string) => {
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        iframe.src = url;
-        document.body.appendChild(iframe);
-        window.setTimeout(() => {
-            iframe.remove();
-        }, 60_000);
+    const triggerBrowserDownload = (url: string, popupWindow: Window | null) => {
+        if (popupWindow) {
+            popupWindow.location.href = url;
+            return;
+        }
+
+        window.location.assign(url);
     };
 
     const parsedUrls = useMemo(
@@ -336,13 +335,15 @@ export function YouTubeDownloader() {
                             type="button"
                             disabled={isDownloadingResult}
                             onClick={async () => {
+                                const popupWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
                                 try {
                                     setIsDownloadingResult(true);
                                     setErrorMessage(null);
                                     const preparedUrl = await requestDownloadUrl(result.job_id);
                                     setDownloadTriggerUrl(preparedUrl);
-                                    triggerBrowserDownload(preparedUrl);
+                                    triggerBrowserDownload(preparedUrl, popupWindow);
                                 } catch (error) {
+                                    popupWindow?.close();
                                     setErrorMessage(error instanceof Error ? error.message : "Download failed.");
                                 } finally {
                                     setIsDownloadingResult(false);

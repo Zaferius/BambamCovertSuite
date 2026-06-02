@@ -5,6 +5,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { ConversionLoader } from "./conversion-loader";
 import { buildApiUrl, isCompletedStatus, isFailedStatus } from "../lib/api";
 import { authFetch } from "../lib/auth-fetch";
+import { AUTH_TOKEN_STORAGE_KEY } from "../lib/app-constants";
 import { useAction } from "../lib/action-context";
 import { JOB_STATUS, POLL_INTERVAL_MS, YOUTUBE_AUDIO_FORMATS, YOUTUBE_DOWNLOAD_MODES, YOUTUBE_VIDEO_QUALITIES } from "../lib/app-constants";
 
@@ -71,6 +72,28 @@ export function YouTubeDownloader() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const { setAction } = useAction();
+
+    const downloadWithAuth = async (downloadPath: string, fallbackName: string) => {
+        const token = typeof window !== "undefined" ? localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) : null;
+        const response = await fetch(buildApiUrl(downloadPath), {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!response.ok) {
+            const payload = await response.text();
+            throw new Error(payload || "Download failed.");
+        }
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = blobUrl;
+        anchor.download = fallbackName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.URL.revokeObjectURL(blobUrl);
+    };
 
     const parsedUrls = useMemo(
         () => urlInput.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
@@ -308,9 +331,23 @@ export function YouTubeDownloader() {
                     <p><strong>Progress:</strong> {jobProgress}%</p>
                     {jobProgressDetail ? <p><strong>Detail:</strong> {jobProgressDetail}</p> : null}
                     {result?.download_url ? (
-                        <a className="primary-button inline-button" href={buildApiUrl(result.download_url)} target="_blank" rel="noreferrer">
+                        <button
+                            className="primary-button inline-button"
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    setErrorMessage(null);
+                                    await downloadWithAuth(
+                                        result.download_url!,
+                                        result.output_filename || (result.item_count > 1 ? "youtube-download.zip" : "youtube-download")
+                                    );
+                                } catch (error) {
+                                    setErrorMessage(error instanceof Error ? error.message : "Download failed.");
+                                }
+                            }}
+                        >
                             Download {result.item_count > 1 ? "zip bundle" : "media file"}
-                        </a>
+                        </button>
                     ) : null}
                 </div>
             )}

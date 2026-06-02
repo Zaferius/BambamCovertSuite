@@ -335,7 +335,7 @@ export function YouTubeDownloader() {
                             type="button"
                             disabled={isDownloadingResult}
                             onClick={async () => {
-                                const popupWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
+                                const popupWindow = window.open("about:blank", "_blank");
                                 try {
                                     setIsDownloadingResult(true);
                                     setErrorMessage(null);

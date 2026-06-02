@@ -70,6 +70,7 @@ export function YouTubeDownloader() {
     const [result, setResult] = useState<JobResponse | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isDownloadingResult, setIsDownloadingResult] = useState(false);
+    const [downloadTriggerUrl, setDownloadTriggerUrl] = useState<string | null>(null);
 
     const { setAction } = useAction();
 
@@ -82,6 +83,16 @@ export function YouTubeDownloader() {
             throw new Error(payload.detail ?? "Could not prepare download.");
         }
         return buildApiUrl(payload.download_url);
+    };
+
+    const triggerBrowserDownload = (url: string) => {
+        const iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        window.setTimeout(() => {
+            iframe.remove();
+        }, 60_000);
     };
 
     const parsedUrls = useMemo(
@@ -329,7 +340,8 @@ export function YouTubeDownloader() {
                                     setIsDownloadingResult(true);
                                     setErrorMessage(null);
                                     const preparedUrl = await requestDownloadUrl(result.job_id);
-                                    window.location.href = preparedUrl;
+                                    setDownloadTriggerUrl(preparedUrl);
+                                    triggerBrowserDownload(preparedUrl);
                                 } catch (error) {
                                     setErrorMessage(error instanceof Error ? error.message : "Download failed.");
                                 } finally {
@@ -344,6 +356,7 @@ export function YouTubeDownloader() {
             )}
 
             {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
+            {downloadTriggerUrl ? <p className="selection-hint">Download prepared. If the browser does not show the save dialog automatically, <a href={downloadTriggerUrl} target="_blank" rel="noreferrer">click here</a>.</p> : null}
             <p className="selection-hint">If a chosen quality is unavailable for a link, Bambam automatically falls back to the nearest available quality.</p>
         </section>
     );

@@ -45,6 +45,12 @@ def on_startup() -> None:
         except Exception:
             db.rollback()
 
+        try:
+            db.execute(text("ALTER TABLE jobs ADD COLUMN progress_detail TEXT"))
+            db.commit()
+        except Exception:
+            db.rollback()
+
         # Add user_id column to bot_settings if it doesn't exist
         try:
             db.execute(text("ALTER TABLE bot_settings ADD COLUMN user_id INTEGER"))
